@@ -25,6 +25,28 @@ npm run preview    # serve dist/ locally, including the service worker
 
 To install as an app, open the preview or a deployed build in Chrome or Edge and use "Install app" in the address bar.
 
+## Keys
+
+`Ctrl+K` opens the command palette, which lists every action with its shortcut.
+
+| Keys | Action |
+| --- | --- |
+| `j` / `k`, `J` / `K`, PgDn / PgUp | Scroll, next / previous page |
+| `g` | Go to page |
+| `Alt+Left` / `Alt+Right` | Back / forward after a jump |
+| `Ctrl +` / `Ctrl -`, `Ctrl+0`, `Ctrl+9`, Ctrl+wheel | Zoom, fit width, fit page |
+| `v` / `Esc`, `h`, `u`, `x`, `p`, `e`, `n`, `a` | Select, highlight, underline, strikethrough, pen, eraser, note, area clip |
+| `1` to `6` | Colour |
+| `Ctrl+Z` / `Ctrl+Y` | Undo / redo annotation edits |
+| `/` or `Ctrl+F` | Find in document |
+| `b`, `N`, `C`, `B` | Sidebar, notebook, flashcards, study pane |
+| `R` | Review due cards |
+| `f`, `r` | Focus mode, reading ruler |
+
+## Dependencies
+
+Runtime: `pdfjs-dist`, `idb`, `pdf-lib` (loaded only when exporting a PDF) and `marked` (notebook preview). The FSRS-5 scheduler is implemented in `src/lib/fsrs.ts` rather than pulled from `ts-fsrs`.
+
 ## Layout
 
 - `src/lib/` holds framework-free modules: data types, geometry, FSRS scheduler, keyboard and command registry, IndexedDB access (`db.ts`), exporters.

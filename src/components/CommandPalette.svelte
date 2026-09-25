@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusOnMount } from '../lib/focus';
   import { formatChord } from '../lib/keys';
   import { fuzzyScore, type Command } from '../lib/registry';
 
@@ -45,8 +46,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="scrim" onclick={onclose}>
   <div class="palette" role="dialog" aria-modal="true" aria-label="Command palette" tabindex="-1" onclick={(e) => e.stopPropagation()} data-testid="palette">
-    <!-- svelte-ignore a11y_autofocus -->
-    <input type="text" bind:value={query} onkeydown={onKey} placeholder="Type a command…" autofocus aria-label="Command"
+    <input type="text" bind:value={query} onkeydown={onKey} placeholder="Type a command…" use:focusOnMount aria-label="Command"
       role="combobox" aria-expanded="true" aria-controls="palette-list" aria-activedescendant="palette-{active}" />
     <ul id="palette-list" role="listbox" bind:this={list} class="scroll-thin">
       {#each results as c, i (c.id)}

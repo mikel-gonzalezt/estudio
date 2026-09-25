@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusOnMount } from '../lib/focus';
   import { untrack } from 'svelte';
   import { isCloze, renderCloze, wrapCloze } from '../lib/cloze';
   import type { CardDraft } from './study.svelte';
@@ -62,8 +63,7 @@
     {#if cloze}
       <label>
         <span>Text <span class="muted">select words and press "Make gap" (or Ctrl+Shift+C)</span></span>
-        <!-- svelte-ignore a11y_autofocus -->
-        <textarea bind:this={area} bind:value={front} rows="5" autofocus
+        <textarea bind:this={area} bind:value={front} rows="5" use:focusOnMount
           onkeydown={(e) => { if (e.key.toLowerCase() === 'c' && e.ctrlKey && e.shiftKey) { e.preventDefault(); makeGap(); } }}
         ></textarea>
       </label>
@@ -74,8 +74,7 @@
     {:else}
       <label>
         <span>Front (question)</span>
-        <!-- svelte-ignore a11y_autofocus -->
-        <textarea bind:value={front} rows="2" autofocus placeholder="What should you recall?"></textarea>
+        <textarea bind:value={front} rows="2" use:focusOnMount placeholder="What should you recall?"></textarea>
       </label>
       <label>
         <span>Back (answer)</span>

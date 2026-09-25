@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusOnMount } from '../lib/focus';
   import { pageToDisplay } from '../lib/geometry';
   import { IDLE } from './interaction';
   import { displaySize } from './pdf';
@@ -36,8 +37,7 @@
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) save();
   }}
 >
-  <!-- svelte-ignore a11y_autofocus -->
-  <textarea bind:value={text} rows="3" placeholder="Note text… (Ctrl+Enter to save)" autofocus data-testid="note-draft"></textarea>
+  <textarea bind:value={text} rows="3" placeholder="Note text… (Ctrl+Enter to save)" use:focusOnMount data-testid="note-draft"></textarea>
   <div class="row">
     <button class="btn" onclick={cancel}>Cancel</button>
     <button class="btn primary" onclick={save}>Add note</button>

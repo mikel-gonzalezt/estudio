@@ -59,7 +59,7 @@ export function readerCommands(r: Reader, ui: ReaderUi): Command[] {
     { id: 'view.outline', title: 'Show outline', group: 'View', run: () => r.showLeft('outline') },
     { id: 'view.theme', title: 'Toggle light / dark theme', group: 'View', run: () => app.toggleTheme() },
 
-    { id: 'app.palette', title: 'Command palette', group: 'App', keys: ['Ctrl+K'], run: ui.openPalette },
+    { id: 'app.palette', title: 'Command palette', group: 'App', keys: ['Ctrl+K'], global: true, run: ui.openPalette },
     { id: 'nav.search', title: 'Find in document', group: 'Navigate', keys: ['/', 'Ctrl+F'], run: () => r.search.show() },
     { id: 'nav.searchNext', title: 'Next search result', group: 'Navigate', keys: ['F3'], when: () => r.search.hits.length > 0, run: () => r.search.next() },
     { id: 'nav.searchPrev', title: 'Previous search result', group: 'Navigate', keys: ['Shift+F3'], when: () => r.search.hits.length > 0, run: () => r.search.prev() },

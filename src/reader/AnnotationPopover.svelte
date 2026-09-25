@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusOnMount } from '../lib/focus';
   import { untrack } from 'svelte';
   import Icon from '../components/Icon.svelte';
   import { app } from '../lib/app.svelte';
@@ -80,8 +81,7 @@
         <button class="swatch" class:on={a.color === c} style:--c={COLOR_HEX[c]} title={app.settings.meanings[c]} aria-label={app.settings.meanings[c]} onclick={() => setColor(c)}></button>
       {/each}
     </div>
-    <!-- svelte-ignore a11y_autofocus -->
-    <textarea bind:value={note} onblur={commit} rows="3" placeholder="Add a note…" autofocus={a.kind === 'note' || a.kind === 'area'}></textarea>
+    <textarea bind:value={note} onblur={commit} rows="3" placeholder="Add a note…" use:focusOnMount={a.kind === 'note' || a.kind === 'area'}></textarea>
   {/if}
   <input type="text" bind:value={tags} onblur={commit} onkeydown={(e) => { if (e.key === 'Enter') commit(); }} placeholder="Tags, comma separated" />
 

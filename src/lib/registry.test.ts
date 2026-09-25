@@ -53,6 +53,15 @@ describe('keymap', () => {
     expect(commandForEvent(map, ev('x'))).toBeUndefined();
   });
 
+  it('leaves keys to text fields unless a command is global', () => {
+    const input = { tagName: 'TEXTAREA' } as unknown as EventTarget;
+    const m = buildKeymap([...cmds, { id: 'undo', title: 'Undo', group: 'Edit', keys: ['Ctrl+Z'], run }]);
+    expect(commandForEvent(m, { ...ev('z', { ctrlKey: true }), target: input })).toBeUndefined();
+    expect(commandForEvent(m, { ...ev('k', { ctrlKey: true }), target: input })).toBeUndefined();
+    const g = buildKeymap([{ ...cmds[0]!, global: true }]);
+    expect(commandForEvent(g, { ...ev('k', { ctrlKey: true }), target: input })?.id).toBe('palette');
+  });
+
   it('ranks substring matches above scattered ones and rejects non-matches', () => {
     expect(fuzzyScore('zoom', 'Zoom in')).toBeGreaterThan(fuzzyScore('zmi', 'Zoom in'));
     expect(fuzzyScore('qqq', 'Zoom in')).toBe(0);
