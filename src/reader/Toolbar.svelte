@@ -83,6 +83,7 @@
     <button title="Zoom in (Ctrl +)" onclick={() => reader.zoomStep(1)}><Icon name="zoomIn" /></button>
     <button title="Fit width (Ctrl 0)" onclick={() => reader.fitWidth()}><Icon name="fitWidth" /></button>
     <button title="Fit page (Ctrl 9)" onclick={() => reader.fitPage()}><Icon name="fitPage" /></button>
+    <button title="Fit text width (w)" aria-label="Fit text width" class:on={reader.fit === 'text'} onclick={() => reader.toggleTextWidth()}><Icon name="fitText" /></button>
     <button title="Find (/)" onclick={() => reader.search.show()}><Icon name="search" /></button>
     <button title="Focus mode (f)" onclick={() => (reader.focus = true)}><Icon name="focus" /></button>
     <button title="Reading ruler (r)" class:on={reader.ruler} onclick={() => (reader.ruler = !reader.ruler)}><Icon name="ruler" /></button>

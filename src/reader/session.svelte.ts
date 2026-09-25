@@ -1,9 +1,10 @@
 import { tick } from 'svelte';
-import type { DocRecord, StoredAnnotation, XY } from '../lib/types';
+import type { DocRecord, Rect, StoredAnnotation, XY } from '../lib/types';
 import { Annotator } from './annotator.svelte';
 import { Study } from './study.svelte';
 import { Search } from './search.svelte';
-import { displayToPage, normalisePoint, pageToDisplay } from '../lib/geometry';
+import { displayToPage, normalisePoint, pageToDisplay, rectPageToDisplay } from '../lib/geometry';
+import { centredScrollLeft, fitTextScale, textBounds } from '../lib/textfit';
 import type { PointerCtx } from './tools';
 import { putDoc } from '../lib/db';
 import type { TextRun } from '../lib/citation';
@@ -14,6 +15,8 @@ export const PAGE_PAD = 16;
 export const MIN_ZOOM = 0.25;
 export const MAX_ZOOM = 5;
 const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
+
+export type FitMode = 'width' | 'page' | 'text';
 
 export type LeftTab = 'outline' | 'thumbnails' | 'annotations';
 
@@ -27,7 +30,7 @@ export class Reader {
   readonly ann: Annotator;
   readonly study: Study;
   readonly search: Search;
-  fit = $state<'width' | 'page' | null>(null);
+  fit = $state<FitMode | null>(null);
   focus = $state(false);
   ruler = $state(false);
   linkPreview = $state.raw<LinkPreviewState | null>(null);
@@ -43,6 +46,8 @@ export class Reader {
 
   readonly #pages = new Map<number, Promise<PDFPageProxy>>();
   readonly #runs = new Map<number, Promise<TextRun[]>>();
+  readonly #bounds = new Map<number, Promise<Rect>>();
+  #beforeTextFit: { scale: number; fit: FitMode | null } | null = null;
   #previewTimer: ReturnType<typeof setTimeout> | undefined;
   #saveTimer: ReturnType<typeof setTimeout> | undefined;
   readonly #seen: Set<number>;
@@ -97,6 +102,16 @@ export class Reader {
       this.#runs.set(n, r);
     }
     return r;
+  }
+
+  /** The union of a page's text boxes (page space), so zooming can crop the margins away. */
+  textBounds(n: number): Promise<Rect> {
+    let b = this.#bounds.get(n);
+    if (!b) {
+      b = this.textRuns(n).then(textBounds);
+      this.#bounds.set(n, b);
+    }
+    return b;
   }
 
   showPreview(p: LinkPreviewState) {
@@ -257,9 +272,38 @@ export class Reader {
     this.scrollTo({ page, y: 0 });
   }
 
+  /** Scales the current page's text column to the viewport width and scrolls it to the centre. */
+  async fitTextWidth() {
+    const f = this.#fitSize();
+    if (!f) return;
+    const page = this.currentPage;
+    const bounds = rectPageToDisplay(await this.textBounds(page), this.info[page - 1]!.rotation);
+    this.fit = 'text';
+    await this.zoomTo(fitTextScale(bounds, f.size, f.el.clientWidth, 32));
+    const el = this.pageElement(page);
+    if (!el) return;
+    const pageLeft = el.getBoundingClientRect().left - f.el.getBoundingClientRect().left + f.el.scrollLeft;
+    f.el.scrollLeft = centredScrollLeft(pageLeft, bounds, f.size.w * this.scale, f.el.clientWidth);
+  }
+
+  /** Switches to fit-text-width, or back to the zoom that was in use before it. */
+  async toggleTextWidth() {
+    const before = this.#beforeTextFit;
+    if (this.fit === 'text' && before) {
+      this.#beforeTextFit = null;
+      if (before.fit === 'width') this.fitWidth();
+      else if (before.fit === 'page') await this.fitPage();
+      else await this.zoomBy(before.scale);
+      return;
+    }
+    this.#beforeTextFit = { scale: this.scale, fit: this.fit };
+    await this.fitTextWidth();
+  }
+
   refit() {
     if (this.fit === 'width') this.fitWidth();
     else if (this.fit === 'page') void this.fitPage();
+    else if (this.fit === 'text') void this.fitTextWidth();
   }
 
   /** Adds active reading time; the caller decides what counts as active. */

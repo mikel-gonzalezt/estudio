@@ -54,6 +54,7 @@ export function readerCommands(r: Reader, ui: ReaderUi): Command[] {
     { id: 'view.zoomIn', title: 'Zoom in', group: 'View', keys: ['Ctrl+=', 'Ctrl++'], run: () => r.zoomStep(1) },
     { id: 'view.zoomOut', title: 'Zoom out', group: 'View', keys: ['Ctrl+-'], run: () => r.zoomStep(-1) },
     { id: 'view.fitWidth', title: 'Fit width', group: 'View', keys: ['Ctrl+0'], run: () => r.fitWidth() },
+    { id: 'view.fitText', title: 'Fit text width (crop margins) / previous zoom', group: 'View', keys: ['w'], run: () => void r.toggleTextWidth() },
     { id: 'view.fitPage', title: 'Fit page', group: 'View', keys: ['Ctrl+9'], run: () => void r.fitPage() },
     { id: 'view.sidebar', title: 'Toggle sidebar', group: 'View', keys: ['b'], run: () => (r.leftOpen = !r.leftOpen) },
     { id: 'view.outline', title: 'Show outline', group: 'View', run: () => r.showLeft('outline') },

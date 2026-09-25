@@ -1,6 +1,7 @@
 <script lang="ts">
   import PageView from './PageView.svelte';
   import type { Reader } from './session.svelte';
+  import { TwoFingerTap } from '../lib/gestures';
 
   let { reader }: { reader: Reader } = $props();
 
@@ -32,6 +33,18 @@
       void reader.zoomBy(reader.scale * Math.exp(-e.deltaY * 0.0015), { x: e.clientX - r.left, y: e.clientY - r.top });
     };
     scroller.addEventListener('wheel', onWheel, { passive: false });
+    const tap = new TwoFingerTap();
+    const touch = (f: (e: PointerEvent) => void) => (e: PointerEvent) => {
+      if (e.pointerType === 'touch') f(e);
+    };
+    const onDown = touch((e) => tap.down(e.pointerId, e.clientX, e.clientY, e.timeStamp));
+    const onMove = touch((e) => tap.move(e.pointerId, e.clientX, e.clientY));
+    const onUp = touch((e) => {
+      if (tap.up(e.pointerId, e.timeStamp)) void reader.toggleTextWidth();
+    });
+    const onCancel = touch((e) => tap.cancel(e.pointerId));
+    const gestures = [['pointerdown', onDown], ['pointermove', onMove], ['pointerup', onUp], ['pointercancel', onCancel]] as const;
+    for (const [type, f] of gestures) scroller.addEventListener(type, f, { capture: true });
     let lastWidth = scroller.clientWidth;
     const ro = new ResizeObserver(() => {
       if (scroller.clientWidth === lastWidth) return;
@@ -44,6 +57,7 @@
       io.disconnect();
       ro.disconnect();
       scroller.removeEventListener('wheel', onWheel);
+      for (const [type, f] of gestures) scroller.removeEventListener(type, f, { capture: true });
     };
   });
 </script>

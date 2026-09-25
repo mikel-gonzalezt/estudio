@@ -33,6 +33,7 @@
     quote: 'M7 7h4v4c0 3-1.5 5-4 6M14 7h4v4c0 3-1.5 5-4 6',
     fitWidth: 'M4 6v12M20 6v12M7 12h10M10 9l-3 3 3 3M14 9l3 3-3 3',
     fitPage: 'M7 3h10v18H7zM10 8h4M10 12h4',
+    fitText: 'M3 4v16M21 4v16M7 8h10M7 12h10M7 16h7',
     timer: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z',
     more: 'M5 12h.01M12 12h.01M19 12h.01',
     copy: 'M9 9h11v11H9zM5 15V4h11',

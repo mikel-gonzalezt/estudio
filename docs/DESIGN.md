@@ -66,9 +66,10 @@ Scheduling uses FSRS (v4/5 default parameters), the algorithm current Anki uses.
 Reading
 - Open by drag-drop, file picker, or recent-files library (with progress bar per document).
 - Virtualised continuous scroll. Render only visible pages plus one ahead; release canvases far away. HiDPI aware.
-- Zoom (Ctrl+wheel, Ctrl +/-, fit width, fit page), go to page, back/forward history for jumps (Alt+Left).
+- Zoom (Ctrl+wheel, Ctrl +/-, fit width, fit page, fit text width), go to page, back/forward history for jumps (Alt+Left).
 - Outline (TOC) sidebar, page thumbnails, in-document search with highlighted hits.
 - Themes: light, dark UI, and page modes: normal, dark (inverted pages), sepia.
+- Fit text width (`w`, the toolbar button, or a two-finger tap on touch screens) scales the current page's text column to the viewport and centres it, cropping the margins out of view. The column is the union of the page's horizontal text boxes (rotated margin stamps are ignored; a page without text uses the full page), cached per page. Pressing it again returns to the previous zoom.
 - Resume at last page and zoom. Reading timer per document.
 - Hover a link to a figure/section to preview its destination (Sioyek "smart jump" style) — internal links only in v1.
 - When the hovered link lands on a bibliography entry, the preview shows the entry as text instead of a page crop. The entry is read from the destination page's text, from the destination down to the next entry. It offers "Open paper" for a DOI, arXiv id or URL found in the entry, otherwise "Search Scholar" with the likely title. The preview stays open while the pointer moves onto it.
