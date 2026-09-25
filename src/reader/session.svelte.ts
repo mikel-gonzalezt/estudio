@@ -3,6 +3,7 @@ import type { DocRecord, Rect, StoredAnnotation, XY } from '../lib/types';
 import { Annotator } from './annotator.svelte';
 import { Study } from './study.svelte';
 import { Search } from './search.svelte';
+import { ReaderHost } from './notebook/host.svelte';
 import { displayToPage, normalisePoint, pageToDisplay, rectPageToDisplay } from '../lib/geometry';
 import { centredScrollLeft, fitTextScale, textBounds } from '../lib/textfit';
 import type { PointerCtx } from './tools';
@@ -30,6 +31,7 @@ export class Reader {
   readonly ann: Annotator;
   readonly study: Study;
   readonly search: Search;
+  readonly notebookHost: ReaderHost;
   fit = $state<FitMode | null>(null);
   focus = $state(false);
   ruler = $state(false);
@@ -63,6 +65,7 @@ export class Reader {
     this.scale = doc.lastZoom;
     this.currentPage = doc.lastPage;
     this.#seen = new Set(doc.pagesSeen);
+    this.notebookHost = new ReaderHost(this);
   }
 
   showLeft(tab: LeftTab) {
@@ -298,6 +301,19 @@ export class Reader {
     }
     this.#beforeTextFit = { scale: this.scale, fit: this.fit };
     await this.fitTextWidth();
+  }
+
+  #layoutHeld = false;
+
+  /** While a pane handle is dragged the page view keeps its zoom; it re-fits once on release. */
+  get layoutHeld() {
+    return this.#layoutHeld;
+  }
+
+  holdLayout(held: boolean) {
+    const released = this.#layoutHeld && !held;
+    this.#layoutHeld = held;
+    if (released) void tick().then(() => this.refit());
   }
 
   refit() {

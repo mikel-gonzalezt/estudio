@@ -9,7 +9,11 @@
   import Outline from './Outline.svelte';
   import AnnotationsPanel from './AnnotationsPanel.svelte';
   import SelectionMenu from './SelectionMenu.svelte';
-  import Notebook from './Notebook.svelte';
+  import NotebookPane from './notebook/NotebookPane.svelte';
+  import NotebookBridge from './notebook/NotebookBridge.svelte';
+  import Splitter from '../components/Splitter.svelte';
+  import { WIDE_NOTEBOOK, type PaneSide } from '../lib/panes';
+  import { DEFAULT_SETTINGS } from '../lib/types';
   import CardsPanel from './CardsPanel.svelte';
   import CardEditor from './CardEditor.svelte';
   import type { RightTab } from './study.svelte';
@@ -67,6 +71,7 @@
   onDestroy(() => {
     document.title = 'Estudio';
     if (reader) {
+      reader.study.dispose();
       void reader.save();
       void reader.pdf.loadingTask.destroy();
     }
@@ -121,6 +126,30 @@
     }, 0);
   }
 
+  let leftPane = $state<HTMLElement>();
+  let rightPane = $state<HTMLElement>();
+  const roomFor = (side: PaneSide) => () =>
+    window.innerWidth - ((side === 'left' ? rightPane : leftPane)?.getBoundingClientRect().width ?? 0);
+
+  function resizePane(side: PaneSide, width: number, live: boolean) {
+    if (side === 'left') app.settings.leftPaneW = width;
+    else {
+      app.settings.rightPaneW = width;
+      app.settings.wideNotebook = false;
+    }
+    reader?.holdLayout(live);
+    if (!live) app.saveSettings();
+  }
+
+  function resetPane(side: PaneSide) {
+    if (side === 'left') app.settings.leftPaneW = DEFAULT_SETTINGS.leftPaneW;
+    else {
+      app.settings.rightPaneW = DEFAULT_SETTINGS.rightPaneW;
+      app.settings.wideNotebook = false;
+    }
+    app.saveSettings();
+  }
+
   const TABS: { id: LeftTab; label: string }[] = [
     { id: 'outline', label: 'Outline' },
     { id: 'thumbnails', label: 'Pages' },
@@ -144,10 +173,13 @@
     class:right-open={reader.study.rightOpen && !reader.focus}
     class:focus={reader.focus}
     data-page-mode={app.settings.pageMode}
+    style:--left-pane="{app.settings.leftPaneW}px"
+    style:--right-pane={app.settings.wideNotebook ? `${WIDE_NOTEBOOK * 100}vw` : `${app.settings.rightPaneW}px`}
   >
     {#if !reader.focus}<div class="top"><Toolbar {reader} /></div>{/if}
     {#if reader.leftOpen && !reader.focus}
-      <aside class="left">
+      <aside class="left" bind:this={leftPane}>
+        <Splitter side="left" label="Resize sidebar" room={roomFor('left')} onresize={(w, live) => resizePane('left', w, live)} onreset={() => resetPane('left')} />
         <nav class="tabs">
           {#each TABS as t (t.id)}
             <button class:active={reader.leftTab === t.id} onclick={() => (reader!.leftTab = t.id)}>{t.label}</button>
@@ -167,7 +199,8 @@
       {#if reader.focus}<button class="exit-focus" onclick={() => (reader!.focus = false)}>Exit focus <kbd>f</kbd></button>{/if}
     </main>
     {#if reader.study.rightOpen && !reader.focus}
-      <aside class="right">
+      <aside class="right" bind:this={rightPane}>
+        <Splitter side="right" label="Resize study pane" room={roomFor('right')} onresize={(w, live) => resizePane('right', w, live)} onreset={() => resetPane('right')} />
         <nav class="tabs">
           {#each RIGHT_TABS as t (t.id)}
             <button class:active={reader.study.rightTab === t.id} onclick={() => (reader!.study.rightTab = t.id)}>
@@ -177,12 +210,13 @@
           <button class="close" title="Close pane" aria-label="Close pane" onclick={() => (reader!.study.rightOpen = false)}>×</button>
         </nav>
         <div class="pane scroll-thin">
-          {#if reader.study.rightTab === 'notebook'}<Notebook {reader} />{:else}<CardsPanel {reader} />{/if}
+          {#if reader.study.rightTab === 'notebook'}<NotebookPane {reader} />{:else}<CardsPanel {reader} />{/if}
         </div>
       </aside>
     {/if}
     {#if !reader.focus}<div class="bottom"><StatusBar {reader} /></div>{/if}
   </div>
+  <NotebookBridge {reader} />
   {#if reader.ann.menu}<SelectionMenu {reader} menu={reader.ann.menu} />{/if}
   {#if reader.linkPreview}<LinkPreview {reader} {...reader.linkPreview} />{/if}
   {#if paletteOpen}<CommandPalette {commands} onclose={() => (paletteOpen = false)} />{/if}
@@ -202,10 +236,11 @@
     grid-template-rows: auto minmax(0, 1fr) auto;
     grid-template-areas: 'top top top' 'left center right' 'bottom bottom bottom';
   }
-  .shell.left-open { --left-w: 260px; }
-  .shell.right-open { --right-w: 340px; }
+  .shell.left-open { --left-w: var(--left-pane); }
+  .shell.right-open { --right-w: max(0px, min(var(--right-pane), calc(100vw - var(--left-w) - 320px))); }
   .right {
     grid-area: right;
+    position: relative;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -234,6 +269,7 @@
   .exit-focus:hover { opacity: 1; }
   .left {
     grid-area: left;
+    position: relative;
     display: flex;
     flex-direction: column;
     min-height: 0;

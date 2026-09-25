@@ -7,7 +7,7 @@ export function exportMarkdownFile(r: Reader) {
   const md = exportMarkdown({
     doc: r.doc,
     annotations: r.ann.sorted,
-    notebook: r.study.markdown,
+    notebook: r.study.notebook.markdown,
     cards: r.study.cards,
     meanings: app.settings.meanings,
     exportedAt: new Date(),

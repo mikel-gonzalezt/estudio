@@ -1,6 +1,16 @@
 import { Marked } from 'marked';
 import { chipText, formatPageLink, pageLinkAtStart, parsePageLinks } from './pagelink';
 
+/** Drag payload for quoting an annotation or a PDF selection into the notebook. */
+export const QUOTE_MIME = 'application/x-estudio-quote';
+export interface QuoteDrag { text: string; page: number }
+
+export function setQuoteDrag(dt: DataTransfer, q: QuoteDrag) {
+  dt.setData(QUOTE_MIME, JSON.stringify(q));
+  dt.setData('text/plain', quoteBlock(q.text, q.page));
+  dt.effectAllowed = 'copy';
+}
+
 /** A blockquote of `text` that ends with a back-link to its page. */
 export function quoteBlock(text: string, page: number): string {
   const lines = text.trim().split(/\r?\n/).map((l) => `> ${l}`);

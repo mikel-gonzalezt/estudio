@@ -19,6 +19,16 @@ function setPageMode(m: PageMode) {
   app.saveSettings();
 }
 
+export function toggleWideNotebook(r: Reader) {
+  app.settings.wideNotebook = !app.settings.wideNotebook;
+  app.saveSettings();
+  if (app.settings.wideNotebook) r.study.showRight('notebook');
+}
+
+export function popOutNotebook(r: Reader) {
+  if (!r.study.popOut()) alert('The browser blocked the notebook window. Allow pop-ups for Estudio and try again.');
+}
+
 export function readerCommands(r: Reader, ui: ReaderUi): Command[] {
   const line = () => 60;
   const a = r.ann;
@@ -35,6 +45,9 @@ export function readerCommands(r: Reader, ui: ReaderUi): Command[] {
     { id: 'edit.delete', title: 'Delete selected annotation', group: 'Annotate', keys: ['Delete'], when: () => !!a.selected, run: () => a.selected && a.remove(a.selected) },
     { id: 'study.notebook', title: 'Open notebook', group: 'Study', keys: ['N'], run: () => r.study.showRight('notebook') },
     { id: 'study.cards', title: 'Open flashcards', group: 'Study', keys: ['C'], run: () => r.study.showRight('cards') },
+    { id: 'study.widenNotebook', title: 'Widen notebook / restore width', group: 'Study', keys: ['W'], run: () => toggleWideNotebook(r) },
+    { id: 'study.popOut', title: 'Open notebook in its own window', group: 'Study', when: () => !r.study.poppedOut, run: () => popOutNotebook(r) },
+    { id: 'study.bringBack', title: 'Bring notebook back into the pane', group: 'Study', when: () => r.study.poppedOut, run: () => r.study.bringBack() },
     { id: 'study.togglePane', title: 'Toggle study pane', group: 'Study', keys: ['B'], run: () => (r.study.rightOpen = !r.study.rightOpen) },
     { id: 'study.review', title: 'Review due cards (this document)', group: 'Study', keys: ['R'], when: () => r.study.dueHere > 0, run: () => (r.study.review = 'doc') },
     { id: 'study.reviewAll', title: 'Review due cards (all documents)', group: 'Study', when: () => r.study.dueAll > 0, run: () => (r.study.review = 'all') },
