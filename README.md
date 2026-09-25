@@ -12,13 +12,13 @@ Requires Node 20+. Run once, and again after pulling changes:
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
-This builds the app, starts a small local server (`scripts/serve.mjs`, port 4173) and opens Estudio in Edge. Click **Install Estudio** at the top of the library, or the install icon in the address bar. The installed app:
+This installs dependencies, builds the app, starts a small local server (`scripts/serve.mjs`, port 4173, hidden) unless one is already running, and opens `http://127.0.0.1:4173/` in Edge. The first time, click **Install Estudio** at the top of the library, or the install icon in the address bar. After that, open Estudio from the Start menu. The installed app:
 
 - appears in the Start menu and can be pinned to the taskbar,
 - is offered in Explorer under **Open with** for PDF files (you can make it the default PDF app in Windows settings),
 - works without the local server, because everything it needs is cached.
 
-The script also keeps the older **Estudio** shortcuts on the Desktop and in the Start menu working. Your library lives in the browser profile under `http://127.0.0.1:4173`, so keep the port fixed. Run the script again after pulling changes; the installed app switches to the new version the next time it shows the library.
+Edge creates the app's own **Estudio** shortcuts when you install it. Earlier versions of the script made launcher shortcuts with the same name; it now deletes those, and only those (shortcuts whose command runs `scripts\launch.ps1`). `scripts\launch.ps1` still works for starting the server and opening Estudio in an app window by hand. Your library lives in the browser profile under `http://127.0.0.1:4173`, so keep the port fixed. Run the install script again after pulling changes; the installed app switches to the new version the next time it shows the library.
 
 ## Saving into the PDF
 
@@ -26,7 +26,7 @@ When a PDF is opened from disk (Open with, Open PDF, drag and drop, or a vault),
 
 ## Vaults
 
-**Open vault** turns a folder into a vault, like Obsidian. The Files tree, on the library and in the reader's left sidebar, shows its folders, PDFs and Markdown notes. Right-click (or F2 and Del) to rename and delete, drag to move, and use the tree's toolbar to add notes and folders or import PDFs. A PDF's notebook is saved as `<name>.md` next to it, with page links Obsidian understands (`[[paper.pdf#page=3|p. 3]]`).
+**Open vault** turns a folder into a vault, like Obsidian. The Files tree, on the library and in the reader's left sidebar, shows its folders, PDFs and Markdown notes. Right-click (or F2 and Del) to rename and delete, drag to move, and use the tree's toolbar to add notes and folders or import PDFs. A PDF's notebook is saved as `<name>.md` next to it, including when it is popped out into its own window, and every page link written there names the PDF so Obsidian can follow it (`[[paper.pdf#page=3|p. 3]]`). Notes open in the same editor; clicking a link such as `[[paper.pdf#page=3]]` in a note opens that PDF from the vault at page 3. A link names a file by name or by path; a bare name is looked up next to the note first, then anywhere in the vault.
 
 ## Develop
 

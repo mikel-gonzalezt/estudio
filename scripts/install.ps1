@@ -1,6 +1,8 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$url = 'http://127.0.0.1:4173/'
+$port = 4173
+$url = "http://127.0.0.1:$port/"
+
 Push-Location $root
 try {
   npm install
@@ -11,41 +13,36 @@ try {
   Pop-Location
 }
 
+# Earlier versions of this script made launcher shortcuts named Estudio. Edge now makes its own
+# Estudio shortcuts when the app is installed, so ours go; a shortcut is ours only if it runs launch.ps1.
 $shell = New-Object -ComObject WScript.Shell
-$targets = @(
-  [Environment]::GetFolderPath('Desktop'),
-  (Join-Path ([Environment]::GetFolderPath('Programs')) '')
-)
-foreach ($dir in $targets) {
-  $lnk = $shell.CreateShortcut((Join-Path $dir 'Estudio.lnk'))
-  $lnk.TargetPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-  $lnk.Arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$root\scripts\launch.ps1`""
-  $lnk.WorkingDirectory = $root
-  $lnk.IconLocation = "$root\public\icon.ico"
-  $lnk.WindowStyle = 7
-  $lnk.Description = 'Estudio PDF reader'
-  $lnk.Save()
+$dirs = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('Programs'))
+foreach ($dir in $dirs) {
+  foreach ($file in Get-ChildItem -LiteralPath $dir -Filter '*.lnk' -File -ErrorAction SilentlyContinue) {
+    if ($shell.CreateShortcut($file.FullName).Arguments -like '*scripts\launch.ps1*') {
+      Remove-Item -LiteralPath $file.FullName
+      Write-Host "Removed old launcher shortcut $($file.FullName)"
+    }
+  }
 }
 
-function Test-Server {
-  try { (Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 1).StatusCode -eq 200 } catch { $false }
+function Test-PortInUse {
+  [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
 }
 
-if (-not (Test-Server)) {
-  Start-Process -FilePath 'node' -ArgumentList "`"$root\scripts\serve.mjs`"" -WindowStyle Hidden
-  for ($i = 0; $i -lt 50 -and -not (Test-Server); $i++) { Start-Sleep -Milliseconds 100 }
+if (-not (Test-PortInUse)) {
+  Start-Process -FilePath 'node' -ArgumentList "`"$root\scripts\serve.mjs`"" -WorkingDirectory $root -WindowStyle Hidden
+  for ($i = 0; $i -lt 50 -and -not (Test-PortInUse); $i++) { Start-Sleep -Milliseconds 100 }
 }
 
-$browsers = @(
+$edge = @(
   "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
-  "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
-  "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
-)
-$browser = $browsers | Where-Object { Test-Path $_ } | Select-Object -First 1
-if ($browser) { Start-Process -FilePath $browser -ArgumentList $url } else { Start-Process $url }
+  "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($edge) { Start-Process -FilePath $edge -ArgumentList $url } else { Start-Process "microsoft-edge:$url" }
 
 Write-Host ''
-Write-Host 'Estudio is built and open in your browser.'
-Write-Host 'To install it as an app, click "Install Estudio" at the top of the library (or the install icon in the address bar).'
-Write-Host 'Once installed, PDFs can be opened with Estudio from Explorer (right-click > Open with), and the app works without the local server.'
-Write-Host 'Run this script again after pulling changes; the installed app picks up the new version the next time it shows the library.'
+Write-Host "Estudio is built and open in Edge at $url"
+Write-Host 'First time: click "Install Estudio" at the top of the library (or the install icon in the address bar).'
+Write-Host 'Afterwards: open Estudio from the Start menu, or open a PDF with it from Explorer. The installed app works without the local server.'
+Write-Host 'Run this script again after pulling changes; the installed app switches to the new version the next time it shows the library.'
