@@ -49,3 +49,37 @@ export function captureSelection(scroller: HTMLElement, info: readonly PageInfo[
   }
   return parts;
 }
+
+/**
+ * Client-space rects for character ranges of a rendered text layer, one merged list per range.
+ * Offsets index the string built by `pageText` (items joined, a space per <br>).
+ */
+export function textLayerRanges(layer: HTMLElement, ranges: readonly (readonly [number, number])[]): Rect[][] {
+  const box = layer.getBoundingClientRect();
+  const nodes: { node: Node; start: number }[] = [];
+  let pos = 0;
+  const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (n.nodeName === 'BR') pos += 1;
+    else if (n.nodeType === Node.TEXT_NODE) {
+      nodes.push({ node: n, start: pos });
+      pos += n.textContent?.length ?? 0;
+    }
+  }
+  const locate = (offset: number): [Node, number] | null => {
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const { node, start } = nodes[i]!;
+      if (offset >= start) return [node, Math.min(offset - start, node.textContent?.length ?? 0)];
+    }
+    return null;
+  };
+  return ranges.map(([s, e]) => {
+    const a = locate(s);
+    const b = locate(e);
+    if (!a || !b) return [];
+    const r = document.createRange();
+    r.setStart(a[0], a[1]);
+    r.setEnd(b[0], b[1]);
+    return mergeLineRects([...r.getClientRects()].map((c) => normaliseRect(c, box)));
+  });
+}

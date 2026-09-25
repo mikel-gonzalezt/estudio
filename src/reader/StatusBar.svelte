@@ -1,6 +1,12 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte';
   import type { Reader } from './session.svelte';
+  import PomodoroWidget from '../components/PomodoroWidget.svelte';
+
+  const fmt = (ms: number) => {
+    const m = Math.floor(ms / 60000);
+    return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+  };
 
   let { reader }: { reader: Reader } = $props();
   let draft = $state('');
@@ -35,6 +41,10 @@
     </form>
   </div>
   <div class="group">
+    <span class="muted" title="Active reading time for this document" data-testid="reading-time"><Icon name="timer" size={13} /> {fmt(reader.doc.readingMs)}</span>
+    <span class="vsep"></span>
+    <PomodoroWidget />
+    <span class="vsep"></span>
     <button class="due" class:has={reader.study.dueAll > 0} title="Review due cards" disabled={reader.study.dueAll === 0}
       onclick={() => (reader.study.review = reader.study.dueHere > 0 ? 'doc' : 'all')} data-testid="due-badge">
       <Icon name="card" size={14} /> {reader.study.dueAll} due
@@ -59,6 +69,8 @@
   .goto { display: flex; align-items: center; gap: 6px; margin-left: 4px; }
   input { width: 44px; text-align: center; padding: 1px 4px; font-size: 12px; }
   button { padding: 2px; }
+  .muted :global(svg) { display: inline; vertical-align: -2px; }
+  .vsep { width: 1px; height: 16px; background: var(--border); }
   .due { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 10px; font-size: 12px; color: var(--muted); }
   .due.has { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 </style>

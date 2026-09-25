@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte';
   import { app } from '../lib/app.svelte';
-  import { COLOR_HEX, COLOR_IDS, DEFAULT_MEANINGS } from '../lib/types';
+  import { COLOR_HEX, COLOR_IDS, DEFAULT_MEANINGS, type PageMode } from '../lib/types';
   import type { Reader } from './session.svelte';
   import { TOOL_IDS, TOOLS } from './tools';
 
@@ -69,6 +69,14 @@
     <button title="Zoom in (Ctrl +)" onclick={() => reader.zoomStep(1)}><Icon name="zoomIn" /></button>
     <button title="Fit width (Ctrl 0)" onclick={() => reader.fitWidth()}><Icon name="fitWidth" /></button>
     <button title="Fit page (Ctrl 9)" onclick={() => reader.fitPage()}><Icon name="fitPage" /></button>
+    <button title="Find (/)" onclick={() => reader.search.show()}><Icon name="search" /></button>
+    <button title="Focus mode (f)" onclick={() => (reader.focus = true)}><Icon name="focus" /></button>
+    <button title="Reading ruler (r)" class:on={reader.ruler} onclick={() => (reader.ruler = !reader.ruler)}><Icon name="ruler" /></button>
+    <select class="mode" aria-label="Page mode" value={app.settings.pageMode} onchange={(e) => { app.settings.pageMode = e.currentTarget.value as PageMode; app.saveSettings(); }}>
+      <option value="normal">Normal</option>
+      <option value="dark">Dark pages</option>
+      <option value="sepia">Sepia</option>
+    </select>
     <span class="sep"></span>
     <button title="Notebook (N)" class:on={reader.study.rightOpen && reader.study.rightTab === 'notebook'} onclick={() => reader.study.showRight('notebook')}><Icon name="notebook" /></button>
     <button title="Flashcards (C)" class:on={reader.study.rightOpen && reader.study.rightTab === 'cards'} onclick={() => reader.study.showRight('cards')}><Icon name="card" /></button>
@@ -91,6 +99,7 @@
   .center { flex: 1; justify-content: center; }
   .title { font-weight: 600; margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
   .zoom { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+  .mode { font-size: 12px; padding: 3px 4px; margin-left: 4px; }
   .sep { width: 1px; height: 20px; background: var(--border); margin: 0 6px; }
   button { padding: 5px; color: var(--text); }
   button.on { background: var(--accent-soft); color: var(--accent); }

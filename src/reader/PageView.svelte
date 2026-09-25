@@ -6,6 +6,9 @@
   import AnnotationLayer from './AnnotationLayer.svelte';
   import AnnotationPopover from './AnnotationPopover.svelte';
   import NoteDraft from './NoteDraft.svelte';
+  import LinkLayer from './LinkLayer.svelte';
+  import { textLayerRanges } from './selection';
+  import type { Rect } from '../lib/types';
   import { TOOLS } from './tools';
 
   let { reader, n, active, keep }: { reader: Reader; n: number; active: boolean; keep: boolean } = $props();
@@ -104,6 +107,27 @@
   });
   const draft = $derived(ann.interaction.kind === 'placing-note' && ann.interaction.page === n ? ann.interaction : null);
 
+  const pageHits = $derived(reader.search.byPage.get(n) ?? []);
+  let hitRects = $state.raw<Rect[][]>([]);
+
+  $effect(() => {
+    const hits = pageHits;
+    if (!hasText || hits.length === 0) {
+      hitRects = [];
+      return;
+    }
+    hitRects = textLayerRanges(textHost, hits.map((h) => [h.start, h.end] as const));
+  });
+
+  $effect(() => {
+    reader.search.nav;
+    const h = untrack(() => reader.search.currentHit);
+    if (!h || h.page !== n || !hitRects.length) return;
+    const r = hitRects[h.index]?.[0];
+    const el = reader.scroller;
+    if (r && el) untrack(() => reader.scrollTo({ page: n, y: r.y }, el.clientHeight / 3));
+  });
+
   function onDown(e: PointerEvent) {
     if (e.button !== 0) return;
     if (tool.captures) {
@@ -143,7 +167,18 @@
   <div class="canvas-host" bind:this={host}></div>
   {#if !hasCanvas}<div class="placeholder">{n}</div>{/if}
   {#if keep}<AnnotationLayer {reader} {n} />{/if}
+  {#if hitRects.length}
+    <div class="hits" aria-hidden="true">
+      {#each hitRects as rects, i (i)}
+        {@const current = reader.search.currentHit?.page === n && reader.search.currentHit?.index === i}
+        {#each rects as r, j (j)}
+          <div class="hit" class:current style:left="{r.x * 100}%" style:top="{r.y * 100}%" style:width="{r.w * 100}%" style:height="{r.h * 100}%"></div>
+        {/each}
+      {/each}
+    </div>
+  {/if}
   <div class="textLayer" bind:this={textHost}></div>
+  {#if keep}<LinkLayer {reader} {n} />{/if}
   {#if tool.captures}
     <div
       class="overlay"
@@ -163,7 +198,6 @@
     position: relative;
     flex: none;
     margin: 0 auto;
-    background: white;
     box-shadow: var(--page-shadow);
     isolation: isolate;
     --user-unit: 1;
@@ -172,6 +206,10 @@
     --scale-round-y: 1px;
   }
   .page.raised { z-index: 2; }
+  .page { background: var(--page-bg, white); }
+  .hits { position: absolute; inset: 0; pointer-events: none; }
+  .hit { position: absolute; background: rgb(255 170 0 / 0.35); border-radius: 2px; margin: -1px; padding: 1px; }
+  .hit.current { background: rgb(255 120 0 / 0.55); box-shadow: 0 0 0 2px rgb(255 120 0 / 0.8); }
   .overlay { position: absolute; inset: 0; z-index: 3; touch-action: none; }
   .canvas-host, .canvas-host :global(canvas) {
     position: absolute;

@@ -2,6 +2,7 @@ import { tick } from 'svelte';
 import type { DocRecord, StoredAnnotation, XY } from '../lib/types';
 import { Annotator } from './annotator.svelte';
 import { Study } from './study.svelte';
+import { Search } from './search.svelte';
 import { displayToPage, normalisePoint, pageToDisplay } from '../lib/geometry';
 import type { PointerCtx } from './tools';
 import { putDoc } from '../lib/db';
@@ -20,6 +21,12 @@ export class Reader {
   readonly info: PageInfo[];
   readonly ann: Annotator;
   readonly study: Study;
+  readonly search: Search;
+  fit = $state<'width' | 'page' | null>(null);
+  focus = $state(false);
+  ruler = $state(false);
+  linkPreview = $state.raw<{ page: number; y: number; x: number; cy: number } | null>(null);
+  thumbsOpen = $state(false);
   doc: DocRecord = $state()!;
   scale = $state(1);
   currentPage = $state(1);
@@ -37,6 +44,7 @@ export class Reader {
     this.pdf = pdf;
     this.ann = new Annotator(this, doc.id, annotations);
     this.study = new Study(doc.id);
+    this.search = new Search(this);
     this.info = info;
     this.doc = doc;
     this.scale = doc.lastZoom;
@@ -182,7 +190,14 @@ export class Reader {
     el.scrollLeft = left;
   }
 
+  /** User-driven zoom; drops any fit mode so resizes stop re-fitting. */
+  zoomBy(next: number, anchor?: { x: number; y: number }) {
+    this.fit = null;
+    return this.zoomTo(next, anchor);
+  }
+
   zoomStep(dir: 1 | -1) {
+    this.fit = null;
     const cur = this.scale;
     const next = dir > 0 ? ZOOM_STEPS.find((z) => z > cur + 0.001) : [...ZOOM_STEPS].reverse().find((z) => z < cur - 0.001);
     void this.zoomTo(next ?? cur);
@@ -196,6 +211,7 @@ export class Reader {
 
   fitWidth() {
     const f = this.#fitSize();
+    this.fit = 'width';
     if (f) void this.zoomTo((f.el.clientWidth - 32) / f.size.w);
   }
 
@@ -203,8 +219,20 @@ export class Reader {
     const f = this.#fitSize();
     if (!f) return;
     const page = this.currentPage;
+    this.fit = 'page';
     await this.zoomTo(Math.min((f.el.clientWidth - 32) / f.size.w, (f.el.clientHeight - PAGE_PAD * 2) / f.size.h));
     this.scrollTo({ page, y: 0 });
+  }
+
+  refit() {
+    if (this.fit === 'width') this.fitWidth();
+    else if (this.fit === 'page') void this.fitPage();
+  }
+
+  /** Adds active reading time; the caller decides what counts as active. */
+  addReading(ms: number) {
+    this.doc.readingMs += ms;
+    this.scheduleSave();
   }
 
   scrollBy(dy: number) {

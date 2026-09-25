@@ -13,6 +13,11 @@
   import CardsPanel from './CardsPanel.svelte';
   import CardEditor from './CardEditor.svelte';
   import type { RightTab } from './study.svelte';
+  import Thumbnails from './Thumbnails.svelte';
+  import SearchBar from './SearchBar.svelte';
+  import Ruler from './Ruler.svelte';
+  import LinkPreview from './LinkPreview.svelte';
+  import CommandPalette from '../components/CommandPalette.svelte';
   import { loadPdf, pageInfo } from './pdf';
   import { Reader, type LeftTab } from './session.svelte';
   import StatusBar from './StatusBar.svelte';
@@ -24,7 +29,8 @@
   let reader = $state<Reader | null>(null);
   let error = $state('');
 
-  const commands = $derived(reader ? readerCommands(reader) : []);
+  let paletteOpen = $state(false);
+  const commands = $derived(reader ? readerCommands(reader, { openPalette: () => (paletteOpen = true) }) : []);
   const keymap = $derived(buildKeymap(commands));
 
   onMount(async () => {
@@ -75,13 +81,29 @@
     return () => clearInterval(t);
   });
 
+  const IDLE_AFTER_MS = 120_000;
+  const TICK_MS = 5000;
+  let lastActivity = Date.now();
+  const markActive = () => (lastActivity = Date.now());
+
+  // Reading time counts only while the tab is visible and the reader has touched it recently.
+  $effect(() => {
+    if (!reader) return;
+    const r = reader;
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible' && Date.now() - lastActivity < IDLE_AFTER_MS) r.addReading(TICK_MS);
+    }, TICK_MS);
+    return () => clearInterval(t);
+  });
+
   const RIGHT_TABS: { id: RightTab; label: string }[] = [
     { id: 'notebook', label: 'Notebook' },
     { id: 'cards', label: 'Cards' },
   ];
 
   function onKeydown(e: KeyboardEvent) {
-    if (reader?.study.draft || reader?.study.review) return;
+    lastActivity = Date.now();
+    if (paletteOpen || reader?.study.draft || reader?.study.review) return;
     const cmd = commandForEvent(keymap, e);
     if (!cmd) return;
     e.preventDefault();
@@ -101,11 +123,12 @@
 
   const TABS: { id: LeftTab; label: string }[] = [
     { id: 'outline', label: 'Outline' },
+    { id: 'thumbnails', label: 'Pages' },
     { id: 'annotations', label: 'Annotations' },
   ];
 </script>
 
-<svelte:window onkeydown={onKeydown} onpointerup={onPointerUp} onbeforeunload={() => reader?.save()} />
+<svelte:window onkeydown={onKeydown} onpointerup={onPointerUp} onpointermove={markActive} onwheel={markActive} onbeforeunload={() => reader?.save()} />
 
 {#if error}
   <div class="fatal">
@@ -115,9 +138,15 @@
 {:else if !reader}
   <div class="loading muted">Opening {request.file.name}…</div>
 {:else}
-  <div class="shell" class:left-open={reader.leftOpen} class:right-open={reader.study.rightOpen}>
-    <div class="top"><Toolbar {reader} /></div>
-    {#if reader.leftOpen}
+  <div
+    class="shell"
+    class:left-open={reader.leftOpen && !reader.focus}
+    class:right-open={reader.study.rightOpen && !reader.focus}
+    class:focus={reader.focus}
+    data-page-mode={app.settings.pageMode}
+  >
+    {#if !reader.focus}<div class="top"><Toolbar {reader} /></div>{/if}
+    {#if reader.leftOpen && !reader.focus}
       <aside class="left">
         <nav class="tabs">
           {#each TABS as t (t.id)}
@@ -126,12 +155,18 @@
         </nav>
         <div class="pane scroll-thin">
           {#if reader.leftTab === 'outline'}<Outline {reader} />
+          {:else if reader.leftTab === 'thumbnails'}<Thumbnails {reader} />
           {:else if reader.leftTab === 'annotations'}<AnnotationsPanel {reader} />{/if}
         </div>
       </aside>
     {/if}
-    <main class="center"><Viewer {reader} /></main>
-    {#if reader.study.rightOpen}
+    <main class="center">
+      <Viewer {reader} />
+      {#if reader.search.open}<SearchBar {reader} />{/if}
+      {#if reader.ruler}<Ruler band={Math.max(22, 26 * reader.scale)} />{/if}
+      {#if reader.focus}<button class="exit-focus" onclick={() => (reader!.focus = false)}>Exit focus <kbd>f</kbd></button>{/if}
+    </main>
+    {#if reader.study.rightOpen && !reader.focus}
       <aside class="right">
         <nav class="tabs">
           {#each RIGHT_TABS as t (t.id)}
@@ -146,9 +181,11 @@
         </div>
       </aside>
     {/if}
-    <div class="bottom"><StatusBar {reader} /></div>
+    {#if !reader.focus}<div class="bottom"><StatusBar {reader} /></div>{/if}
   </div>
   {#if reader.ann.menu}<SelectionMenu {reader} menu={reader.ann.menu} />{/if}
+  {#if reader.linkPreview}<LinkPreview {reader} {...reader.linkPreview} />{/if}
+  {#if paletteOpen}<CommandPalette {commands} onclose={() => (paletteOpen = false)} />{/if}
   {#if reader.study.draft}<CardEditor study={reader.study} draft={reader.study.draft} />{/if}
   {#if reader.study.review}
     {#await loadReview() then m}<m.default {reader} />{/await}
@@ -180,6 +217,21 @@
   .badge { margin-left: 5px; padding: 0 6px; border-radius: 9px; background: var(--accent); color: var(--accent-text); font-size: 10.5px; }
   .tabs .close { flex: 0 0 auto; font-size: 16px; line-height: 1; }
   .top { grid-area: top; }
+  .shell.focus { grid-template-rows: 0 minmax(0, 1fr) 0; }
+  .shell[data-page-mode='dark'] { --page-filter: invert(0.9) hue-rotate(180deg); --page-bg: #1c1c1c; --hl-blend: screen; --hl-opacity: 0.4; }
+  .shell[data-page-mode='sepia'] { --page-filter: sepia(0.5) saturate(1.15) brightness(0.96); --page-bg: #f1e7d0; }
+  .exit-focus {
+    position: absolute;
+    top: 10px;
+    right: 22px;
+    z-index: 30;
+    font-size: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    opacity: 0.35;
+    transition: opacity 0.2s;
+  }
+  .exit-focus:hover { opacity: 1; }
   .left {
     grid-area: left;
     display: flex;

@@ -1,6 +1,6 @@
 import { app } from '../lib/app.svelte';
 import type { Command } from '../lib/registry';
-import { COLOR_IDS } from '../lib/types';
+import { COLOR_IDS, type PageMode } from '../lib/types';
 import type { Reader } from './session.svelte';
 import { TOOL_IDS, TOOLS } from './tools';
 
@@ -10,7 +10,14 @@ const focusGoto = () => {
   el?.select();
 };
 
-export function readerCommands(r: Reader): Command[] {
+export interface ReaderUi { openPalette: () => void }
+
+function setPageMode(m: PageMode) {
+  app.settings.pageMode = m;
+  app.saveSettings();
+}
+
+export function readerCommands(r: Reader, ui: ReaderUi): Command[] {
   const line = () => 60;
   const a = r.ann;
   return [
@@ -50,6 +57,16 @@ export function readerCommands(r: Reader): Command[] {
     { id: 'view.outline', title: 'Show outline', group: 'View', run: () => r.showLeft('outline') },
     { id: 'view.theme', title: 'Toggle light / dark theme', group: 'View', run: () => app.toggleTheme() },
 
+    { id: 'app.palette', title: 'Command palette', group: 'App', keys: ['Ctrl+K'], run: ui.openPalette },
+    { id: 'nav.search', title: 'Find in document', group: 'Navigate', keys: ['/', 'Ctrl+F'], run: () => r.search.show() },
+    { id: 'nav.searchNext', title: 'Next search result', group: 'Navigate', keys: ['F3'], when: () => r.search.hits.length > 0, run: () => r.search.next() },
+    { id: 'nav.searchPrev', title: 'Previous search result', group: 'Navigate', keys: ['Shift+F3'], when: () => r.search.hits.length > 0, run: () => r.search.prev() },
+    { id: 'view.thumbnails', title: 'Show page thumbnails', group: 'View', run: () => r.showLeft('thumbnails') },
+    { id: 'view.focus', title: 'Toggle focus mode', group: 'View', keys: ['f'], run: () => (r.focus = !r.focus) },
+    { id: 'view.ruler', title: 'Toggle reading ruler', group: 'View', keys: ['r'], run: () => (r.ruler = !r.ruler) },
+    { id: 'view.pageNormal', title: 'Page mode: normal', group: 'View', run: () => setPageMode('normal') },
+    { id: 'view.pageDark', title: 'Page mode: dark (inverted pages)', group: 'View', run: () => setPageMode('dark') },
+    { id: 'view.pageSepia', title: 'Page mode: sepia', group: 'View', run: () => setPageMode('sepia') },
     { id: 'app.library', title: 'Close document (back to library)', group: 'App', run: () => app.close() },
   ];
 }

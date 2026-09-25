@@ -29,12 +29,20 @@
       if (!e.ctrlKey) return;
       e.preventDefault();
       const r = scroller.getBoundingClientRect();
-      void reader.zoomTo(reader.scale * Math.exp(-e.deltaY * 0.0015), { x: e.clientX - r.left, y: e.clientY - r.top });
+      void reader.zoomBy(reader.scale * Math.exp(-e.deltaY * 0.0015), { x: e.clientX - r.left, y: e.clientY - r.top });
     };
     scroller.addEventListener('wheel', onWheel, { passive: false });
+    let lastWidth = scroller.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (scroller.clientWidth === lastWidth) return;
+      lastWidth = scroller.clientWidth;
+      reader.refit();
+    });
+    ro.observe(scroller);
     requestAnimationFrame(() => reader.scrollTo({ page: reader.doc.lastPage, y: 0 }));
     return () => {
       io.disconnect();
+      ro.disconnect();
       scroller.removeEventListener('wheel', onWheel);
     };
   });
