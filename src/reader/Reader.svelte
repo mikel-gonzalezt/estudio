@@ -2,11 +2,13 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import '../styles/textlayer.css';
   import { app, type OpenRequest } from '../lib/app.svelte';
-  import { getDoc, putDoc } from '../lib/db';
+  import { annotationsFor, getDoc, putDoc } from '../lib/db';
   import { buildKeymap, commandForEvent } from '../lib/registry';
   import type { DocId, DocRecord } from '../lib/types';
   import { readerCommands } from './commands';
   import Outline from './Outline.svelte';
+  import AnnotationsPanel from './AnnotationsPanel.svelte';
+  import SelectionMenu from './SelectionMenu.svelte';
   import { loadPdf, pageInfo } from './pdf';
   import { Reader, type LeftTab } from './session.svelte';
   import StatusBar from './StatusBar.svelte';
@@ -39,7 +41,7 @@
             ...(handle ? { handle } : {}),
           };
       await putDoc(doc);
-      reader = new Reader(pdf, info, doc);
+      reader = new Reader(pdf, info, doc, await annotationsFor(doc.id));
       document.title = `${doc.title} · Estudio`;
       if (!existing) {
         await tick();
@@ -65,12 +67,24 @@
     cmd.run();
   }
 
+  function onPointerUp(e: PointerEvent) {
+    const s = reader?.ann.interaction;
+    if (!reader || s?.kind !== 'selecting') return;
+    const r = reader;
+    // Let the browser settle the selection before reading it.
+    setTimeout(() => {
+      const c = r.pointerCtx(s.page, e);
+      if (c) r.ann.pointer('up', c);
+    }, 0);
+  }
+
   const TABS: { id: LeftTab; label: string }[] = [
     { id: 'outline', label: 'Outline' },
+    { id: 'annotations', label: 'Annotations' },
   ];
 </script>
 
-<svelte:window onkeydown={onKeydown} onbeforeunload={() => reader?.save()} />
+<svelte:window onkeydown={onKeydown} onpointerup={onPointerUp} onbeforeunload={() => reader?.save()} />
 
 {#if error}
   <div class="fatal">
@@ -90,13 +104,15 @@
           {/each}
         </nav>
         <div class="pane scroll-thin">
-          {#if reader.leftTab === 'outline'}<Outline {reader} />{/if}
+          {#if reader.leftTab === 'outline'}<Outline {reader} />
+          {:else if reader.leftTab === 'annotations'}<AnnotationsPanel {reader} />{/if}
         </div>
       </aside>
     {/if}
     <main class="center"><Viewer {reader} /></main>
     <div class="bottom"><StatusBar {reader} /></div>
   </div>
+  {#if reader.ann.menu}<SelectionMenu {reader} menu={reader.ann.menu} />{/if}
 {/if}
 
 <style>

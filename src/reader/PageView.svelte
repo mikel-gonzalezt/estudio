@@ -3,6 +3,10 @@
   import { TextLayer, RenderingCancelledException, type PageViewport, type RenderTask } from 'pdfjs-dist';
   import { displaySize } from './pdf';
   import type { Reader } from './session.svelte';
+  import AnnotationLayer from './AnnotationLayer.svelte';
+  import AnnotationPopover from './AnnotationPopover.svelte';
+  import NoteDraft from './NoteDraft.svelte';
+  import { TOOLS } from './tools';
 
   let { reader, n, active, keep }: { reader: Reader; n: number; active: boolean; keep: boolean } = $props();
 
@@ -91,18 +95,67 @@
   });
 
   $effect(() => release);
+
+  const ann = $derived(reader.ann);
+  const tool = $derived(TOOLS[ann.tool]);
+  const selectedHere = $derived.by(() => {
+    const a = ann.selected ? ann.items.get(ann.selected) : undefined;
+    return a?.page === n ? a : undefined;
+  });
+  const draft = $derived(ann.interaction.kind === 'placing-note' && ann.interaction.page === n ? ann.interaction : null);
+
+  function onDown(e: PointerEvent) {
+    if (e.button !== 0) return;
+    if (tool.captures) {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      e.preventDefault();
+    }
+    const c = reader.pointerCtx(n, e);
+    if (c) ann.pointer('down', c);
+  }
+
+  function onMove(e: PointerEvent) {
+    if (!tool.captures || ann.interaction.kind === 'idle' || ann.interaction.kind === 'placing-note') return;
+    // Coalesced samples keep fast pen strokes smooth.
+    for (const ev of e.getCoalescedEvents?.() ?? [e]) {
+      const c = reader.pointerCtx(n, ev);
+      if (c) ann.pointer('move', c);
+    }
+  }
+
+  function onUp(e: PointerEvent) {
+    if (!tool.captures) return;
+    const c = reader.pointerCtx(n, e);
+    if (c) ann.pointer('up', c);
+  }
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="page"
+  class:raised={!!selectedHere || !!draft}
   data-page={n}
+  onpointerdown={tool.captures ? undefined : onDown}
   style:width="{size.w * reader.scale}px"
   style:height="{size.h * reader.scale}px"
   style:--scale-factor={reader.scale}
 >
   <div class="canvas-host" bind:this={host}></div>
   {#if !hasCanvas}<div class="placeholder">{n}</div>{/if}
+  {#if keep}<AnnotationLayer {reader} {n} />{/if}
   <div class="textLayer" bind:this={textHost}></div>
+  {#if tool.captures}
+    <div
+      class="overlay"
+      style:cursor={tool.cursor}
+      onpointerdown={onDown}
+      onpointermove={onMove}
+      onpointerup={onUp}
+      onpointercancel={onUp}
+    ></div>
+  {/if}
+  {#if selectedHere}{#key selectedHere.id}<AnnotationPopover {reader} a={selectedHere} />{/key}{/if}
+  {#if draft}<NoteDraft {reader} page={n} at={draft.at} />{/if}
 </div>
 
 <style>
@@ -118,6 +171,8 @@
     --scale-round-x: 1px;
     --scale-round-y: 1px;
   }
+  .page.raised { z-index: 2; }
+  .overlay { position: absolute; inset: 0; z-index: 3; touch-action: none; }
   .canvas-host, .canvas-host :global(canvas) {
     position: absolute;
     inset: 0;

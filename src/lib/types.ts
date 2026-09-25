@@ -26,6 +26,12 @@ export const COLOR_HEX: Record<ColorId, string> = {
   pink: '#f08fb4', orange: '#f5a54a', purple: '#b391e8',
 };
 
+/** Darker variants for pen strokes, which need contrast against white paper. */
+export const INK_HEX: Record<ColorId, string> = {
+  yellow: '#c99a06', green: '#2e8f48', blue: '#2a6fd1',
+  pink: '#d23f7a', orange: '#dc7412', purple: '#7b4fcf',
+};
+
 export type TextMarkupKind = 'highlight' | 'underline' | 'strike';
 
 export interface Stroke { color: string; width: number; points: Point[] }
@@ -103,3 +109,26 @@ export function annotationTop(a: Annotation): number {
       return a.rect.y;
   }
 }
+
+/** Bottom-left corner of an annotation in page space, where its editor opens. */
+export function annotationAnchor(a: Annotation): XY {
+  switch (a.kind) {
+    case 'highlight': case 'underline': case 'strike': {
+      const last = a.rects.reduce((m, r) => (r.y + r.h > m.y + m.h ? r : m));
+      return { x: Math.min(...a.rects.map((r) => r.x)), y: last.y + last.h };
+    }
+    case 'ink': {
+      const pts = a.strokes.flatMap((s) => s.points);
+      return { x: Math.min(...pts.map((p) => p.x)), y: Math.max(...pts.map((p) => p.y)) };
+    }
+    case 'note':
+      return { x: a.at.x, y: a.at.y + 0.02 };
+    case 'area':
+      return { x: a.rect.x, y: a.rect.y + a.rect.h };
+  }
+}
+
+export const KIND_LABEL: Record<AnnotationKind, string> = {
+  highlight: 'Highlight', underline: 'Underline', strike: 'Strikethrough',
+  ink: 'Drawing', note: 'Note', area: 'Area clip',
+};

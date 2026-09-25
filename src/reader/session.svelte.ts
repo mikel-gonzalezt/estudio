@@ -1,6 +1,8 @@
 import { tick } from 'svelte';
-import type { DocRecord, XY } from '../lib/types';
-import { pageToDisplay } from '../lib/geometry';
+import type { DocRecord, StoredAnnotation, XY } from '../lib/types';
+import { Annotator } from './annotator.svelte';
+import { displayToPage, normalisePoint, pageToDisplay } from '../lib/geometry';
+import type { PointerCtx } from './tools';
 import { putDoc } from '../lib/db';
 import { displaySize, type PageInfo, type PDFDocumentProxy, type PDFPageProxy, type Target } from './pdf';
 
@@ -15,6 +17,7 @@ export type LeftTab = 'outline' | 'thumbnails' | 'annotations';
 export class Reader {
   readonly pdf: PDFDocumentProxy;
   readonly info: PageInfo[];
+  readonly ann: Annotator;
   doc: DocRecord = $state()!;
   scale = $state(1);
   currentPage = $state(1);
@@ -28,8 +31,9 @@ export class Reader {
   #saveTimer: ReturnType<typeof setTimeout> | undefined;
   readonly #seen: Set<number>;
 
-  constructor(pdf: PDFDocumentProxy, info: PageInfo[], doc: DocRecord) {
+  constructor(pdf: PDFDocumentProxy, info: PageInfo[], doc: DocRecord, annotations: StoredAnnotation[]) {
     this.pdf = pdf;
+    this.ann = new Annotator(this, doc.id, annotations);
     this.info = info;
     this.doc = doc;
     this.scale = doc.lastZoom;
@@ -89,6 +93,7 @@ export class Reader {
 
   onScroll() {
     if (!this.scroller) return;
+    this.ann.menu = null;
     const page = this.pageAt(this.scroller.scrollTop);
     if (page !== this.currentPage) {
       this.currentPage = page;
@@ -99,6 +104,19 @@ export class Reader {
       this.doc.lastPage = page;
       this.scheduleSave();
     }
+  }
+
+  pageElement(n: number): HTMLElement | null {
+    return this.scroller?.querySelector<HTMLElement>(`.page[data-page="${n}"]`) ?? null;
+  }
+
+  pointerCtx(page: number, e: { clientX: number; clientY: number; pressure: number; pointerType: string }): PointerCtx | null {
+    const el = this.pageElement(page);
+    const p = this.info[page - 1];
+    if (!el || !p) return null;
+    const at = displayToPage(normalisePoint(e.clientX, e.clientY, el.getBoundingClientRect()), p.rotation);
+    const pressure = e.pointerType === 'mouse' ? 0.5 : e.pressure || 0.5;
+    return { ann: this.ann, page, at, pressure, size: { w: p.w, h: p.h } };
   }
 
   /** Converts a page-space point (unrotated, normalised) into a scroll target. */
