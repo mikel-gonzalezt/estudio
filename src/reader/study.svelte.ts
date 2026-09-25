@@ -1,7 +1,7 @@
 import { cardsFor, countDue, deleteCard, putCard } from '../lib/db';
 import { newSrs } from '../lib/fsrs';
 import { appendBlock, quoteBlock } from '../lib/notebook';
-import { idbNotebook, type NotebookStore } from '../lib/notebookstore';
+import { linkedPdfName, type NotebookHome, type NotebookStore } from '../lib/notebookstore';
 import { popoutHash } from '../lib/notebooksync';
 import { NotebookChannel, NotebookDoc } from './notebook/doc.svelte';
 import { newId, type AnnId, type Card, type CardId, type DocId } from '../lib/types';
@@ -13,6 +13,7 @@ export interface CardDraft { page: number; text: string; annId?: AnnId; cloze: b
 
 export class Study {
   readonly docId: DocId;
+  readonly #home: NotebookHome;
   readonly notebook: NotebookDoc;
   /** The notebook is being edited in its own window; the pane shows a placeholder meanwhile. */
   poppedOut = $state(false);
@@ -25,10 +26,12 @@ export class Study {
   draft = $state.raw<CardDraft | null>(null);
   review = $state<ReviewScope | null>(null);
 
-  constructor(docId: DocId, store: NotebookStore = idbNotebook(docId), pdfName?: string) {
+  constructor(home: NotebookHome, store: NotebookStore) {
+    const { docId } = home;
     this.docId = docId;
+    this.#home = home;
     const channel = new NotebookChannel(docId);
-    this.notebook = new NotebookDoc(docId, channel, store, pdfName);
+    this.notebook = new NotebookDoc(docId, channel, store, linkedPdfName(home));
     channel.on((m) => {
       if (m.t === 'hello') this.notebook.announce();
       if (m.t === 'hello' || m.t === 'open') this.poppedOut = true;
@@ -45,7 +48,7 @@ export class Study {
 
   /** Opens the notebook in its own window, or brings that window to the front. */
   popOut(): boolean {
-    const url = `${location.pathname}${location.search}${popoutHash(this.docId)}`;
+    const url = `${location.pathname}${location.search}${popoutHash(this.#home)}`;
     const w = window.open(url, `estudio-notebook-${this.docId}`, 'popup,width=720,height=900');
     if (!w) return false;
     this.#popout = w;

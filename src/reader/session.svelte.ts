@@ -11,8 +11,7 @@ import { putDoc } from '../lib/db';
 import type { TextRun } from '../lib/citation';
 import type { PdfRequest } from '../lib/app.svelte';
 import type { FileSync } from './filesync.svelte';
-import { fileNotebook } from '../lib/notebookstore';
-import { stemOf } from '../lib/vaulttree';
+import { idbNotebook, sidecarNotebook } from '../lib/notebookstore';
 import { displaySize, textRuns, type DestPoint, type PageInfo, type PDFDocumentProxy, type PDFPageProxy, type Target } from './pdf';
 
 export const PAGE_GAP = 12;
@@ -66,8 +65,8 @@ export class Reader {
     this.ann = new Annotator(this, doc.id, annotations);
     const place = source.place;
     this.study = place
-      ? new Study(doc.id, fileNotebook(place.dir, `${stemOf(place.name)}.md`, doc.id), place.name)
-      : new Study(doc.id);
+      ? new Study({ kind: 'vault', docId: doc.id, vault: place.vault, pdfPath: place.path }, sidecarNotebook(place.dir, place.name, doc.id))
+      : new Study({ kind: 'db', docId: doc.id }, idbNotebook(doc.id));
     this.search = new Search(this);
     this.info = info;
     this.doc = doc;

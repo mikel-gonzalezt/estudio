@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DISK_REV, newer, nextRev, NO_REV, POPOUT_ROUTE, popoutHash } from './notebooksync';
+import type { DocId, VaultId } from './types';
+import { DISK_REV, newer, nextRev, NO_REV, parsePopoutHash, popoutHash } from './notebooksync';
 
 describe('notebook revisions', () => {
   it('orders edits by count', () => {
@@ -25,8 +26,12 @@ describe('notebook revisions', () => {
     expect(nextRev({ n: 7, by: 'other' }, 'me')).toEqual({ n: 8, by: 'me' });
   });
 
-  it('round-trips the pop-out route', () => {
-    const id = 'abc/def 1';
-    expect(decodeURIComponent(POPOUT_ROUTE.exec(popoutHash(id))![1]!)).toBe(id);
+  it('round-trips the pop-out route for database and vault notebooks', () => {
+    const docId = 'abc/def 1?x=&' as DocId;
+    for (const home of [
+      { kind: 'db', docId },
+      { kind: 'vault', docId, vault: 'v-1' as VaultId, pdfPath: 'Papers/a & b?.pdf' },
+    ] as const) expect(parsePopoutHash(popoutHash(home))).toEqual(home);
+    expect(parsePopoutHash('#/library')).toBeNull();
   });
 });

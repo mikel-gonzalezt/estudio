@@ -1,13 +1,14 @@
 import { mount } from 'svelte';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App.svelte';
-import { POPOUT_ROUTE } from './lib/notebooksync';
+import { parsePopoutHash } from './lib/notebooksync';
 import { pwa } from './lib/pwa.svelte';
 import './styles/global.css';
 
 const target = document.getElementById('app')!;
-if (POPOUT_ROUTE.test(location.hash)) {
-  void import('./reader/notebook/NotebookWindow.svelte').then((m) => mount(m.default, { target }));
+const popout = parsePopoutHash(location.hash);
+if (popout) {
+  void import('./reader/notebook/NotebookWindow.svelte').then((m) => mount(m.default, { target, props: { home: popout } }));
 } else {
   pwa.listen();
   mount(App, { target });

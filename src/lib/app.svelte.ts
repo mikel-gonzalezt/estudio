@@ -1,10 +1,10 @@
 import { getSettings, listDocs, putSettings } from './db';
 import { askPermission } from './fsaccess';
-import { DEFAULT_SETTINGS, type DocRecord, type Settings } from './types';
+import { DEFAULT_SETTINGS, type DocRecord, type Settings, type VaultId } from './types';
 import { vaults } from './vaults.svelte';
 
-/** Where a file sits inside the open vault: its folder handle, its name and its vault path. */
-export interface VaultPlace { dir: FileSystemDirectoryHandle; name: string; path: string }
+/** Where a file sits inside the open vault: the vault, its folder handle, its name and its vault path. */
+export interface VaultPlace { vault: VaultId; dir: FileSystemDirectoryHandle; name: string; path: string }
 
 export interface PdfRequest { kind: 'pdf'; file: File; handle?: FileSystemFileHandle; place?: VaultPlace }
 export interface NoteRequest { kind: 'note'; handle: FileSystemFileHandle; place: VaultPlace }

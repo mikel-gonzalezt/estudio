@@ -19,10 +19,9 @@
       return;
     }
     vaults.folder = parentOf(node.path);
-    const p = await vaults.place(node.path);
-    const place = { dir: p.dir, name: p.name, path: p.path };
-    if (node.kind === 'pdf') await app.openFile(await p.handle.getFile(), p.handle, place);
-    else app.openNote(p.handle, place);
+    const { handle, ...place } = await vaults.place(node.path);
+    if (node.kind === 'pdf') await app.openFile(await handle.getFile(), handle, place);
+    else app.openNote(handle, place);
   }
 
   async function newFolder() {

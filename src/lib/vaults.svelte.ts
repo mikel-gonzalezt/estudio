@@ -121,21 +121,25 @@ class Vaults {
   }
 
   /** The vault path of a file handle, when it lies inside the open vault. */
-  async locate(handle: FileSystemFileHandle): Promise<{ dir: FileSystemDirectoryHandle; name: string; path: VaultPath } | null> {
+  async locate(handle: FileSystemFileHandle): Promise<{ vault: VaultId; dir: FileSystemDirectoryHandle; name: string; path: VaultPath } | null> {
     const v = this.current;
     if (!v) return null;
     const path = await pathIn(v.handle, handle);
-    return path ? { dir: await dirAt(v.handle, parentOf(path)), name: nameOf(path), path } : null;
+    return path ? { vault: v.id, dir: await dirAt(v.handle, parentOf(path)), name: nameOf(path), path } : null;
   }
 
   async place(path: VaultPath) {
-    const root = this.#root();
-    return { handle: await fileAt(root, path), dir: await dirAt(root, parentOf(path)), name: nameOf(path), path };
+    const { id: vault, handle: root } = this.#open();
+    return { vault, handle: await fileAt(root, path), dir: await dirAt(root, parentOf(path)), name: nameOf(path), path };
+  }
+
+  #open(): Vault {
+    if (!this.current) throw new Error('No vault is open');
+    return this.current;
   }
 
   #root(): FileSystemDirectoryHandle {
-    if (!this.current) throw new Error('No vault is open');
-    return this.current.handle;
+    return this.#open().handle;
   }
 
   async #run<T>(what: string, f: () => Promise<T>): Promise<T | undefined> {

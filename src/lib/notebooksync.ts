@@ -1,3 +1,6 @@
+import type { NotebookHome } from './notebookstore';
+import type { DocId, VaultId } from './types';
+
 /**
  * Notebook text is shared between the reader window and a pop-out window with last-edit-wins:
  * every local edit bumps a revision, and a window adopts incoming text only when its revision is
@@ -39,5 +42,20 @@ export type NotebookMsg =
 
 export const channelName = (docId: string) => `estudio-notebook:${docId}`;
 
-export const POPOUT_ROUTE = /^#\/notebook\/(.+)$/;
-export const popoutHash = (docId: string) => `#/notebook/${encodeURIComponent(docId)}`;
+const POPOUT_ROUTE = /^#\/notebook\/([^?]+)(?:\?(.*))?$/;
+
+/** `#/notebook/<docId>`, plus `?vault=<id>&pdf=<path>` when the notebook is a `.md` in a vault. */
+export function popoutHash(home: NotebookHome): string {
+  const base = `#/notebook/${encodeURIComponent(home.docId)}`;
+  return home.kind === 'vault' ? `${base}?${new URLSearchParams({ vault: home.vault, pdf: home.pdfPath })}` : base;
+}
+
+export function parsePopoutHash(hash: string): NotebookHome | null {
+  const m = POPOUT_ROUTE.exec(hash);
+  if (!m) return null;
+  const docId = decodeURIComponent(m[1]!) as DocId;
+  const q = new URLSearchParams(m[2] ?? '');
+  const vault = q.get('vault');
+  const pdfPath = q.get('pdf');
+  return vault && pdfPath ? { kind: 'vault', docId, vault: vault as VaultId, pdfPath } : { kind: 'db', docId };
+}
