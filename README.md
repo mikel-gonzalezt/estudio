@@ -1,6 +1,6 @@
 # Estudio
 
-A PDF reader built for studying: highlights with meaning, notes linked to pages, and flashcards on a spaced-repetition schedule. It runs in the browser and installs as a PWA. Everything is stored locally in IndexedDB.
+A PDF reader built for studying: highlights with meaning, notes linked to pages, and flashcards on a spaced-repetition schedule. It runs in the browser and installs as a PWA that opens PDFs straight from Explorer. Annotations are saved into the PDF itself, as standard annotations other readers show, and notes can live in an Obsidian-style vault folder. Cards, progress and settings are stored locally in IndexedDB.
 
 The design and data model live in [docs/DESIGN.md](docs/DESIGN.md).
 
@@ -12,7 +12,21 @@ Requires Node 20+. Run once, and again after pulling changes:
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
-This builds the app and adds an **Estudio** shortcut to the Desktop and the Start menu. The shortcut starts a small local server (`scripts/serve.mjs`, port 4173) if it isn't running and opens Estudio in its own Edge or Chrome window. Your library and annotations live in that browser profile under `http://127.0.0.1:4173`, so keep the port fixed.
+This builds the app, starts a small local server (`scripts/serve.mjs`, port 4173) and opens Estudio in Edge. Click **Install Estudio** at the top of the library, or the install icon in the address bar. The installed app:
+
+- appears in the Start menu and can be pinned to the taskbar,
+- is offered in Explorer under **Open with** for PDF files (you can make it the default PDF app in Windows settings),
+- works without the local server, because everything it needs is cached.
+
+The script also keeps the older **Estudio** shortcuts on the Desktop and in the Start menu working. Your library lives in the browser profile under `http://127.0.0.1:4173`, so keep the port fixed. Run the script again after pulling changes; the installed app switches to the new version the next time it shows the library.
+
+## Saving into the PDF
+
+When a PDF is opened from disk (Open with, Open PDF, drag and drop, or a vault), highlights, drawings, notes and area clips are written into that file a few seconds after each change and when you close it. The status bar shows **Saved to file**, **Saving…**, or **Unsaved (click to allow)** when the browser needs your permission to write; click it once. Nothing is lost meanwhile, because Estudio keeps its own copy until the file is written. If another app changed the annotations in the file, both sets are merged.
+
+## Vaults
+
+**Open vault** turns a folder into a vault, like Obsidian. The Files tree, on the library and in the reader's left sidebar, shows its folders, PDFs and Markdown notes. Right-click (or F2 and Del) to rename and delete, drag to move, and use the tree's toolbar to add notes and folders or import PDFs. A PDF's notebook is saved as `<name>.md` next to it, with page links Obsidian understands (`[[paper.pdf#page=3|p. 3]]`).
 
 ## Develop
 
@@ -33,7 +47,7 @@ npm run build      # type-check (svelte-check) and production build into dist/
 npm run preview    # serve dist/ locally, including the service worker
 ```
 
-To install as an app, open the preview or a deployed build in Chrome or Edge and use "Install app" in the address bar.
+To install as an app, open the preview or a deployed build in Chrome or Edge and click **Install Estudio**.
 
 ## Keys
 
@@ -55,7 +69,7 @@ To install as an app, open the preview or a deployed build in Chrome or Edge and
 
 ## Dependencies
 
-Runtime: `pdfjs-dist`, `idb`, `pdf-lib` (loaded only when exporting a PDF) and `marked` (notebook preview). The FSRS-5 scheduler is implemented in `src/lib/fsrs.ts` rather than pulled from `ts-fsrs`.
+Runtime: `pdfjs-dist`, `idb`, `pdf-lib` (in a worker when saving annotations into a file, and on demand for exports) and `marked` (notebook preview). The FSRS-5 scheduler is implemented in `src/lib/fsrs.ts` rather than pulled from `ts-fsrs`.
 
 ## Layout
 

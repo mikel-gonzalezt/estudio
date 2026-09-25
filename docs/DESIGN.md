@@ -4,14 +4,15 @@
 
 1. Studying first. Reading is the start; the app exists to turn a PDF into understanding: highlights with meaning, notes linked to the page, flashcards reviewed on a schedule.
 2. Fast and lightweight. Cold start under 1 s, only visible pages rendered, heavy code (export, flashcards) lazy-loaded.
-3. PC first, tablets and phones next. One web codebase. Ships as an installable PWA today (works offline, own window on Windows). A Tauri shell can wrap the same `dist/` later for a native installer and mobile stores.
+3. PC first, tablets and phones next. One web codebase. Ships as an installable PWA today (works offline, own window on Windows, registered as a PDF handler). A Tauri shell can wrap the same `dist/` later for a native installer and mobile stores.
+4. Your files stay yours. A PDF opened from disk carries its own annotations, readable by any other PDF reader, and a vault is a plain folder that Obsidian can open too.
 
 ## Stack
 
 - Vite + TypeScript (strict) + Svelte 5 (runes). Svelte compiles away, so the runtime stays small.
 - `pdfjs-dist` for parsing, rendering, text layer, outline, search.
 - `idb` for IndexedDB.
-- `pdf-lib` only inside the export path, loaded with dynamic `import()`.
+- `pdf-lib` for reading and writing annotations inside PDF files. It runs in a Web Worker (`src/lib/pdfannots.worker.ts`) when saving to a file, and is loaded with dynamic `import()` for exports; it is never in the initial chunk.
 - `vite-plugin-pwa` for the service worker and manifest.
 - Vitest for pure logic (scheduler, geometry, exporters). Playwright for end-to-end.
 
@@ -33,8 +34,11 @@ interface DocRecord {
   id: DocId; title: string; fileName: string; pageCount: number;
   lastPage: number; lastZoom: number; pagesSeen: number[];      // reading progress
   addedAt: number; openedAt: number; readingMs: number;
-  handle?: FileSystemFileHandle;                                // reopen without picker (Chromium)
+  handle?: FileSystemFileHandle;                                // reopen without picker, and save into (Chromium)
+  syncBase?: Record<AnnId, number>;                             // each annotation's updatedAt when `handle`'s file and Estudio last agreed
 }
+
+interface Vault { id: VaultId; name: string; handle: FileSystemDirectoryHandle; addedAt: number; openedAt: number }
 
 type Annotation =
   | { kind: 'highlight' | 'underline' | 'strike'; page: number; rects: Rect[]; text: string; color: ColorId; note: string }
@@ -48,7 +52,8 @@ type ColorId = 'yellow' | 'green' | 'blue' | 'pink' | 'orange' | 'purple';
 // blue Example, pink Doubt / review, orange Formula, purple Personal idea.
 
 interface Notebook { docId: DocId; markdown: string; updatedAt: number }
-// Markdown with page links written as [[p12]]; clicking one jumps the reader to page 12.
+// Markdown with page links written as [[p12]], or [[paper.pdf#page=12|p. 12]] in a vault notebook;
+// clicking one jumps the reader to page 12.
 
 interface Card {
   id: CardId; docId: DocId; annId?: AnnId; page: number;
@@ -57,14 +62,40 @@ interface Card {
 }
 ```
 
-IndexedDB stores: `docs`, `annotations` (index `docId`), `notebooks`, `cards` (indexes `docId`, `due`), `settings`, `handles`.
+IndexedDB stores (version 2): `docs`, `annotations` (index `docId`), `notebooks`, `cards` (indexes `docId`, `due`), `settings`, `handles`, `vaults`.
+
+## Files, saving and identity
+
+A document opened with a writable `FileSystemFileHandle` (file-handler launch, the Open PDF picker, drag-drop from Explorer, or a vault) keeps its annotations inside the PDF.
+
+- Format. `src/lib/pdfannots.ts` maps each annotation to a standard object: highlight, underline and strikethrough to `/Highlight`, `/Underline`, `/StrikeOut` with `/QuadPoints`; drawings to `/Ink`; sticky notes to `/Text`; area clips to `/Square`. `/NM` holds the `AnnId`, `/Contents` the note, `/Subj` the colour meaning and tags, and `/EstudioData` a JSON string with what only Estudio needs (colour id, tags, highlighted text, per-point pen pressure and stroke colours, kind, timestamps). Geometry is always read back from the standard fields, so an annotation moved in another app moves in Estudio too.
+- Ownership. Estudio reads and rewrites every annotation of those six subtypes, except hidden ones and `/Text` replies (`/IRT`). Markup made by other apps is imported on open (its colour snapped to the nearest `ColorId`, `/Contents` as the note, `/NM` or `pdf-<obj>-<gen>` as the id) and is Estudio's from then on. Links, form fields, stamps and everything else are left untouched. The imported objects are marked `noView` in pdf.js's annotation storage and every render uses `AnnotationMode.ENABLE_STORAGE`, so they are not painted twice.
+- Identity. `DocId` stays the pdf.js fingerprint. pdf.js derives it from the first trailer `/ID` when that is a valid 16-byte string, otherwise from the MD5 of the first 1024 bytes. pdf-lib rewrites the whole file, which would change those bytes, so every write pins `/ID[0]` to the bytes the source was fingerprinted by, and gives `/ID[1]` fresh random bytes as the spec asks of a modified file. Tests check the fingerprint is identical across saves for a file with and without an `/ID`.
+- Saving. `FileSync` (`src/reader/filesync.svelte.ts`) writes a few seconds after the last edit, when the reader closes and when the window is hidden. Each save re-reads the file and runs a three-way merge (`src/lib/annmerge.ts`) against `syncBase`: the newer `updatedAt` wins, an edit beats a deletion on the other side, and additions from both sides are kept. A file changed by another app since it was loaded is merged, not clobbered; this subsumes a `lastModified` check. The write goes through `createWritable()`, which Chromium stages in a temporary file and swaps in on `close()`, so a crash leaves the old PDF intact. IndexedDB is written first on every edit and stays the durable copy until a file write succeeds.
+- Permission. Writing needs `readwrite` permission, and asking needs a user gesture. Without it the status bar shows "Unsaved (click to allow)"; clicking grants access and saves. Reopening from the library asks for `readwrite` in the same click.
+- `syncBase` belongs to the file at `DocRecord.handle`. Opening the same paper from a different file (`isSameEntry` false) starts from an empty base, which merges by union and never deletes.
+- Files without a handle (plain `<input>`, non-Chromium browsers) keep the IndexedDB-only behaviour; "Export annotated PDF" writes a copy through the same writer, keeping annotations other apps left in the file.
+
+## Vaults
+
+A vault is a folder picked with `showDirectoryPicker({ mode: 'readwrite' })`, like an Obsidian vault. Handles live in the `vaults` store; after a restart a vault whose grant lapsed shows "Allow access", one click. The last opened vault reopens on start when its grant is still valid.
+
+- The tree is a pure map from vault path to node (`src/lib/vaulttree.ts`, tested): folders first, natural name order, only `.pdf` and `.md` files, dotfiles and dot-folders (`.obsidian/`, `.estudio/`) ignored. `src/lib/vault.ts` is the file-system boundary: walking, create, move (native `move()` with a copy-and-delete fallback), delete.
+- The Files tree shows on the library and as the reader's Files tab: open, new folder, new note, rename (F2), move by drag and drop, delete (Del, confirmed), import PDFs by picker or by dropping files on a folder. Renaming or moving a PDF takes its notebook with it.
+- A vault PDF's notebook is `<name>.md` beside `<name>.pdf`, created on the first edit (an older IndexedDB notebook for the same document is shown until then). Page links in it are written as `[[<name>.pdf#page=N|p. N]]`, which Obsidian follows. `formatPageLink(page, label?, pdfName?)` in `src/lib/notebook.ts` makes that choice.
+- A standalone `.md` note opens full width in the notebook editor beside the tree.
+- A PDF opened from anywhere (launch, picker) that lies inside the open vault is treated as a vault file.
+
+## Installing and updating
+
+The manifest registers Estudio for `application/pdf` / `.pdf` (`file_handlers`) with `launch_handler: focus-existing`, so a PDF opened from Explorer arrives through `launchQueue` in the window that is already open. The library shows "Install Estudio" while the browser offers installation. The service worker precaches the app shell, the reader and note chunks, the pdf.js worker, the pdf-lib worker, and pdf.js cmaps, standard fonts and wasm decoders, so the installed app opens and saves PDFs with the local server stopped. Updates use prompt mode: a new version waits while a document is open and is applied (one reload) once the library is showing and pending saves have finished.
 
 Scheduling uses FSRS (v4/5 default parameters), the algorithm current Anki uses. Pure functions, unit-tested.
 
 ## Features (v1, PC)
 
 Reading
-- Open by drag-drop, file picker, or recent-files library (with progress bar per document).
+- Open by drag-drop, file picker, "Open with" from Explorer once installed, a vault's Files tree, or the recent-files library (with progress bar per document).
 - Virtualised continuous scroll. Render only visible pages plus one ahead; release canvases far away. HiDPI aware.
 - Zoom (Ctrl+wheel, Ctrl +/-, fit width, fit page, fit text width), go to page, back/forward history for jumps (Alt+Left).
 - Outline (TOC) sidebar, page thumbnails, in-document search with highlighted hits.
@@ -92,8 +123,18 @@ Keyboard and discovery
 
 Export and safety
 - Export highlights + notes + notebook to Markdown (Obsidian-friendly).
-- Export annotated PDF: annotations written as real PDF annotation objects (highlight/underline/strikeout/ink/text), so they open in Acrobat, Zotero and others.
+- Annotations are saved into the PDF itself when it was opened from disk (see Files, saving and identity), as real annotation objects that Acrobat, Zotero and others show. Export annotated PDF writes the same objects into a copy for files opened without a handle.
 - Full JSON backup and restore of the database.
+
+## Known limitations
+
+- Cards, reading progress, reading time and settings stay in IndexedDB, keyed by `DocId`. They are not in the vault, so they do not travel with the folder to another machine or browser profile; the JSON backup covers them.
+- Every copy of the same paper has the same `DocId`, so copies share one set of annotations, and opening another copy writes them into it too.
+- pdf-lib rewrites the whole file. Encrypted PDFs (including owner-password-only ones) are not written: annotations stay in Estudio and the status bar says so. Digital signatures are invalidated by a rewrite; incremental updates would avoid that, but pdf-lib does not produce them.
+- Each save parses and serialises the PDF in the worker. The page stays responsive, but for books of tens of MB a save takes seconds.
+- Imported markup has no highlighted text (other apps do not store it), so the annotations list shows it without a quote.
+- A vault notebook is overwritten on save without checking whether Obsidian changed it meanwhile, and renaming a PDF does not rewrite links to it in other notes.
+- A PDF opened without a handle is rendered with its own annotation objects; if it was exported by Estudio, its annotations are drawn twice.
 
 ## Later (tablet / mobile / v2)
 
