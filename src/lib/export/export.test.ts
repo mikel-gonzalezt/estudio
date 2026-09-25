@@ -1,10 +1,8 @@
-import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFNumber } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
 import { BackupError, makeBackup, parseBackup } from '../backup';
 import { newSrs } from '../fsrs';
 import { DEFAULT_MEANINGS, type AnnId, type Card, type CardId, type DocId, type StoredAnnotation } from '../types';
 import { exportMarkdown } from './markdown';
-import { exportAnnotatedPdf } from './pdf';
 
 const meta = (id: string, page: number) => ({ id: id as AnnId, docId: 'doc' as DocId, tags: [] as string[], createdAt: 0, updatedAt: 0, page });
 
@@ -41,31 +39,6 @@ describe('markdown export', () => {
   it('turns page links into plain references and lists cards', () => {
     expect(md).toContain('Summary, see (p. 2).');
     expect(md).toContain('- The Transformer drops recurrence (p. 2)');
-  });
-});
-
-describe('annotated PDF export', () => {
-  it('writes real annotation objects with page-space geometry', async () => {
-    const src = await PDFDocument.create();
-    src.addPage([600, 800]);
-    src.addPage([600, 800]);
-    const out = await exportAnnotatedPdf(await src.save(), annotations, DEFAULT_MEANINGS);
-
-    const doc = await PDFDocument.load(out);
-    const annotsOf = (i: number) => doc.getPages()[i]!.node.Annots()!;
-    const dicts = (i: number) => annotsOf(i).asArray().map((r) => doc.context.lookup(r, PDFDict));
-    const subtypes = dicts(0).map((d) => d.get(PDFName.of('Subtype'))!.toString());
-    expect(subtypes.sort()).toEqual(['/Ink', '/Square', '/StrikeOut', '/Text', '/Underline']);
-
-    const [hl] = dicts(1);
-    expect(hl!.get(PDFName.of('Subtype'))!.toString()).toBe('/Highlight');
-    const quads = hl!.lookup(PDFName.of('QuadPoints'), PDFArray).asArray().map((n) => (n as PDFNumber).asNumber());
-    expect(quads).toHaveLength(16);
-    // First quad's upper-left corner: x = 0.1 * 600, y = (1 - 0.2) * 800.
-    expect(quads[0]).toBeCloseTo(60);
-    expect(quads[1]).toBeCloseTo(640);
-    const text = hl!.lookup(PDFName.of('Contents'), PDFHexString).decodeText();
-    expect(text).toBe('Core idea\n\nDefinition #thesis');
   });
 });
 

@@ -11,7 +11,14 @@ export interface DocRecord {
   lastPage: number; lastZoom: number; pagesSeen: number[];
   addedAt: number; openedAt: number; readingMs: number;
   handle?: FileSystemFileHandle;
+  /** Each annotation's updatedAt as of the last time the file at `handle` and Estudio agreed. */
+  syncBase?: Record<AnnId, number>;
 }
+
+export type VaultId = string & { __brand: 'VaultId' };
+
+/** A folder the reader works in, Obsidian style. The handle keeps its access grant across restarts. */
+export interface Vault { id: VaultId; name: string; handle: FileSystemDirectoryHandle; addedAt: number; openedAt: number }
 
 export const COLOR_IDS = ['yellow', 'green', 'blue', 'pink', 'orange', 'purple'] as const;
 export type ColorId = (typeof COLOR_IDS)[number];
@@ -44,8 +51,10 @@ export type Annotation =
 
 export type AnnotationKind = Annotation['kind'];
 
-interface AnnMeta { id: AnnId; docId: DocId; tags: string[]; createdAt: number; updatedAt: number }
-export type StoredAnnotation = Annotation & AnnMeta;
+interface FileMeta { id: AnnId; tags: string[]; createdAt: number; updatedAt: number }
+/** An annotation as it lives inside a PDF file, before it is attached to a document. */
+export type FileAnnotation = Annotation & FileMeta;
+export type StoredAnnotation = FileAnnotation & { docId: DocId };
 
 export interface Notebook { docId: DocId; markdown: string; updatedAt: number }
 
