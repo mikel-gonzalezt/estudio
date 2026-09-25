@@ -13,6 +13,7 @@
 - `idb` for IndexedDB.
 - `pdf-lib` only inside the export path, loaded with dynamic `import()`.
 - `vite-plugin-pwa` for the service worker and manifest.
+- CodeMirror 6 (`@codemirror/*`) for the notebook editor, loaded with dynamic `import()` the first time an editor mounts. `markdownLanguage` is used instead of `markdown()` so `@codemirror/lang-html` stays out of the bundle.
 - Vitest for pure logic (scheduler, geometry, exporters). Playwright for end-to-end.
 
 Why not Electron: 150 MB+ per install and slow cold start, against goal 2. Why not Tauri yet: needs Rust + MSVC on the dev machine; the web core is written so wrapping it later is a config change, not a rewrite.
@@ -48,7 +49,9 @@ type ColorId = 'yellow' | 'green' | 'blue' | 'pink' | 'orange' | 'purple';
 // blue Example, pink Doubt / review, orange Formula, purple Personal idea.
 
 interface Notebook { docId: DocId; markdown: string; updatedAt: number }
-// Markdown with page links written as [[p12]]; clicking one jumps the reader to page 12.
+// Markdown with page links. Read: [[p12]], [[p12|label]], and Obsidian's [[file.pdf#page=12]] /
+// [[file.pdf#page=12|label]] (only the page is a target). Written only by formatPageLink() in
+// src/lib/pagelink.ts, currently as [[p12]] or [[p12|label]].
 
 interface Card {
   id: CardId; docId: DocId; annId?: AnnId; page: number;
@@ -82,13 +85,23 @@ Annotating
 
 Studying
 - Notebook pane per document (markdown, live preview). "Quote to notebook" on any selection or annotation inserts a blockquote with a `[[pN]]` back-link.
+- Page links show as compact chips in the editor ("p. 12" or their label). Clicking a chip, or Ctrl/Cmd+clicking link text, jumps the reader. Ctrl+L inserts a link to the page on screen.
+- Typing `[[` opens a completion list: the current page first, then outline sections (link labelled with the section title), then annotations whose text matches what was typed (labelled with an excerpt).
+- Dragging an annotation from the sidebar, or selected page text, into the editor drops a blockquote with a page link at that spot.
+- Auto page links (toggle in the notebook header, on by default, stored in settings): Enter at the end of a non-empty line, or the first keystroke into an empty notebook, starts the new paragraph with a chip for the page being read when that page differs from the nearest link above. It never fires on undo, redo, paste or drop, nor inside a blockquote.
+- Pop-out: the notebook opens in its own window (`#/notebook/<docId>`, which renders only the editor). The pane shows a placeholder until the window closes. Page links clicked there jump the reader. Both windows share text over a `BroadcastChannel` with last-edit-wins: each local edit bumps a revision `(n, windowId)`, a window adopts incoming text only when that revision is newer, and only the author of the newest revision writes it to IndexedDB, so neither window saves stale text over the other's edit (`src/lib/notebooksync.ts`).
+
+Layout
+- The sidebar and the study pane have drag handles. Widths are clamped (sidebar 180 to 520 px, study pane 260 px up to leaving the page view 320 px), saved in settings, and reset by double-clicking the handle. Handles are focusable: arrow keys move them 16 px (64 with Shift), Home/End jump to the limits.
+- While a handle is dragged the page view keeps its zoom; fit-width, fit-page and fit-text re-fit once on release.
+- Widen notebook (`W`, or the header button) gives the study pane 60% of the window.
 - Flashcards from a selection or annotation: basic (front/back) or cloze. Review screen with Again/Hard/Good/Easy and FSRS scheduling; due count badge; review scoped to a document or all documents.
 - Focus mode (hides chrome) and reading ruler (dims everything but a band that follows the cursor).
 - Pomodoro timer in the status bar.
 
 Keyboard and discovery
 - Command palette (Ctrl+K) listing every action with its shortcut.
-- `j/k` scroll, `J/K` or PgDn/PgUp page, `g` go to page, `h` highlight tool, `u` underline, `p` pen, `n` note, `e` eraser, `v`/Esc select, `1`–`6` colour, `/` or Ctrl+F search, `f` focus mode, `r` ruler, `b` toggle sidebar.
+- `j/k` scroll, `J/K` or PgDn/PgUp page, `g` go to page, `h` highlight tool, `u` underline, `p` pen, `n` note, `e` eraser, `v`/Esc select, `1`–`6` colour, `/` or Ctrl+F search, `f` focus mode, `r` ruler, `b` toggle sidebar, `W` widen notebook. In the notebook editor: Ctrl+L link current page, `[[` link completion.
 
 Export and safety
 - Export highlights + notes + notebook to Markdown (Obsidian-friendly).
