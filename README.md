@@ -4,7 +4,17 @@ A PDF reader built for studying: highlights with meaning, notes linked to pages,
 
 The design and data model live in [docs/DESIGN.md](docs/DESIGN.md).
 
-## Run
+## Install on Windows
+
+Requires Node 20+. Run once, and again after pulling changes:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+```
+
+This builds the app and adds an **Estudio** shortcut to the Desktop and the Start menu. The shortcut starts a small local server (`scripts/serve.mjs`, port 4173) if it isn't running and opens Estudio in its own Edge or Chrome window. Your library and annotations live in that browser profile under `http://127.0.0.1:4173`, so keep the port fixed.
+
+## Develop
 
 Requires Node 20+.
 
