@@ -37,7 +37,7 @@
   async function follow(e: MouseEvent, l: Link) {
     e.preventDefault();
     clearTimeout(hoverTimer);
-    reader.linkPreview = null;
+    reader.hidePreview();
     if (l.url) {
       window.open(l.url, '_blank', 'noopener');
       return;
@@ -48,17 +48,18 @@
 
   function enter(e: MouseEvent, l: Link) {
     if (!l.dest) return;
-    const { clientX: x, clientY: y } = e;
+    const { clientX, clientY } = e;
+    const name = typeof l.dest === 'string' ? l.dest : null;
     clearTimeout(hoverTimer);
     hoverTimer = setTimeout(async () => {
-      const t = await resolve(l);
-      if (t) reader.linkPreview = { page: t.page, y: t.y, x, cy: y };
+      const dest = await resolve(l);
+      if (dest) reader.showPreview({ dest, name, clientX, clientY });
     }, 300);
   }
 
   function leave() {
     clearTimeout(hoverTimer);
-    reader.linkPreview = null;
+    reader.hidePreview(250);
   }
 </script>
 

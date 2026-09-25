@@ -6,7 +6,8 @@ import { Search } from './search.svelte';
 import { displayToPage, normalisePoint, pageToDisplay } from '../lib/geometry';
 import type { PointerCtx } from './tools';
 import { putDoc } from '../lib/db';
-import { displaySize, type PageInfo, type PDFDocumentProxy, type PDFPageProxy, type Target } from './pdf';
+import type { TextRun } from '../lib/citation';
+import { displaySize, textRuns, type DestPoint, type PageInfo, type PDFDocumentProxy, type PDFPageProxy, type Target } from './pdf';
 
 export const PAGE_GAP = 12;
 export const PAGE_PAD = 16;
@@ -15,6 +16,8 @@ export const MAX_ZOOM = 5;
 const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
 
 export type LeftTab = 'outline' | 'thumbnails' | 'annotations';
+
+export interface LinkPreviewState { dest: DestPoint; name: string | null; clientX: number; clientY: number }
 
 export class Reader {
   readonly pdf: PDFDocumentProxy;
@@ -27,7 +30,7 @@ export class Reader {
   fit = $state<'width' | 'page' | null>(null);
   focus = $state(false);
   ruler = $state(false);
-  linkPreview = $state.raw<{ page: number; y: number; x: number; cy: number } | null>(null);
+  linkPreview = $state.raw<LinkPreviewState | null>(null);
   thumbsOpen = $state(false);
   doc: DocRecord = $state()!;
   scale = $state(1);
@@ -39,6 +42,8 @@ export class Reader {
   forward: Target[] = $state([]);
 
   readonly #pages = new Map<number, Promise<PDFPageProxy>>();
+  readonly #runs = new Map<number, Promise<TextRun[]>>();
+  #previewTimer: ReturnType<typeof setTimeout> | undefined;
   #saveTimer: ReturnType<typeof setTimeout> | undefined;
   readonly #seen: Set<number>;
 
@@ -83,6 +88,31 @@ export class Reader {
       this.#pages.set(n, p);
     }
     return p;
+  }
+
+  textRuns(n: number): Promise<TextRun[]> {
+    let r = this.#runs.get(n);
+    if (!r) {
+      r = this.page(n).then((p) => p.getTextContent()).then((tc) => textRuns(tc.items, this.info[n - 1]!));
+      this.#runs.set(n, r);
+    }
+    return r;
+  }
+
+  showPreview(p: LinkPreviewState) {
+    clearTimeout(this.#previewTimer);
+    this.linkPreview = p;
+  }
+
+  /** Hides the preview after `delay` ms, long enough for the pointer to travel from the link onto the preview. */
+  hidePreview(delay = 0) {
+    clearTimeout(this.#previewTimer);
+    if (delay) this.#previewTimer = setTimeout(() => (this.linkPreview = null), delay);
+    else this.linkPreview = null;
+  }
+
+  holdPreview() {
+    clearTimeout(this.#previewTimer);
   }
 
   pageAt(scrollTop: number): number {

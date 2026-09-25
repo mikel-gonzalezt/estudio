@@ -1,6 +1,7 @@
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { Rotation } from '../lib/geometry';
+import type { TextRun } from '../lib/citation';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -30,8 +31,10 @@ export interface Target { page: number; y: number }
 
 type Dest = unknown[];
 
-/** Resolves a named or explicit destination to a page and a normalised top offset in page space. */
-export async function resolveDest(pdf: PDFDocumentProxy, dest: string | Dest | null, info: (page: number) => PageInfo | undefined): Promise<Target | null> {
+/** A destination's page, plus its normalised top and (when the destination gives one) left in page space. */
+export interface DestPoint extends Target { x: number | null }
+
+export async function resolveDest(pdf: PDFDocumentProxy, dest: string | Dest | null, info: (page: number) => PageInfo | undefined): Promise<DestPoint | null> {
   const explicit = typeof dest === 'string' ? await pdf.getDestination(dest) : dest;
   if (!Array.isArray(explicit) || explicit.length === 0) return null;
   const ref = explicit[0];
@@ -43,11 +46,27 @@ export async function resolveDest(pdf: PDFDocumentProxy, dest: string | Dest | n
   const p = info(page);
   const mode = (explicit[1] as { name?: string } | undefined)?.name;
   let top: unknown;
+  const left = mode === 'XYZ' || mode === 'FitR' ? explicit[2] : null;
   if (mode === 'XYZ') top = explicit[3];
   else if (mode === 'FitH' || mode === 'FitBH') top = explicit[2];
   else if (mode === 'FitR') top = explicit[5];
   const y = p && typeof top === 'number' ? Math.min(1, Math.max(0, 1 - (top - p.y0) / p.h)) : 0;
-  return { page, y };
+  const x = p && typeof left === 'number' ? Math.min(1, Math.max(0, (left - p.x0) / p.w)) : null;
+  return { page, y, x };
+}
+
+interface RawTextItem { str?: string; transform?: number[]; width?: number; height?: number }
+
+/** Horizontal text items in normalised page space; rotated text such as margin stamps is left out. */
+export function textRuns(items: readonly unknown[], p: PageInfo): TextRun[] {
+  const out: TextRun[] = [];
+  for (const it of items as RawTextItem[]) {
+    const t = it.transform;
+    if (typeof it.str !== 'string' || !t || t[1] !== 0 || t[2] !== 0) continue;
+    const h = (it.height ?? 0) / p.h;
+    out.push({ str: it.str, x: (t[4]! - p.x0) / p.w, y: 1 - (t[5]! - p.y0) / p.h - h, w: (it.width ?? 0) / p.w, h });
+  }
+  return out;
 }
 
 export interface OutlineNode { title: string; dest: string | Dest | null; items: OutlineNode[] }

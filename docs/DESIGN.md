@@ -71,6 +71,7 @@ Reading
 - Themes: light, dark UI, and page modes: normal, dark (inverted pages), sepia.
 - Resume at last page and zoom. Reading timer per document.
 - Hover a link to a figure/section to preview its destination (Sioyek "smart jump" style) — internal links only in v1.
+- When the hovered link lands on a bibliography entry, the preview shows the entry as text instead of a page crop. The entry is read from the destination page's text, from the destination down to the next entry. It offers "Open paper" for a DOI, arXiv id or URL found in the entry, otherwise "Search Scholar" with the likely title. The preview stays open while the pointer moves onto it.
 
 Annotating
 - Tools: select, highlight, underline, strikethrough, pen (pressure-aware, pointer events so a tablet stylus works), eraser, sticky note, area clip.
