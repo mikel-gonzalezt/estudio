@@ -56,14 +56,18 @@ export function autoLinkInsert(text: string, pos: number, currentPage: number): 
   return pageAbove(text, pos) === currentPage ? null : `${formatPageLink(currentPage)} `;
 }
 
-/** A paragraph is being started: Enter at the end of a line that has content. */
+/**
+ * A paragraph is being started: Enter at the end of a line that has content. Enter inside a
+ * blockquote continues the quote, which is not a new paragraph of the reader's own.
+ */
 export function startsParagraph(lineBefore: string, cursorAtLineEnd: boolean): boolean {
-  return cursorAtLineEnd && lineBefore.trim() !== '';
+  const t = lineBefore.trim();
+  return cursorAtLineEnd && t !== '' && !t.startsWith('>');
 }
 
 /** Only typed text counts as a first keystroke; paste, drop, undo and redo never auto-link. */
 export function isFirstKeystroke(docLengthBefore: number, userEvent: string | undefined): boolean {
-  return docLengthBefore === 0 && userEvent === 'input.type';
+  return docLengthBefore === 0 && (userEvent === 'input.type' || !!userEvent?.startsWith('input.type.'));
 }
 
 /** Where and what to insert so `block` lands on its own lines at `pos`. */

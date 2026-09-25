@@ -78,10 +78,12 @@ describe('auto page links', () => {
     expect(startsParagraph('some text', true)).toBe(true);
     expect(startsParagraph('   ', true)).toBe(false);
     expect(startsParagraph('some text', false)).toBe(false);
+    expect(startsParagraph('> a quote [[p3]]', true)).toBe(false);
   });
 
   it('counts only typing into an empty notebook as a first keystroke', () => {
     expect(isFirstKeystroke(0, 'input.type')).toBe(true);
+    expect(isFirstKeystroke(0, 'input.type.compose')).toBe(true);
     expect(isFirstKeystroke(3, 'input.type')).toBe(false);
     for (const e of ['input.paste', 'input.drop', 'undo', 'redo', undefined]) expect(isFirstKeystroke(0, e)).toBe(false);
   });
