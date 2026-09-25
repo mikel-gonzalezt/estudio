@@ -1,22 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { app, filesFromDrop } from './lib/app.svelte';
+  import { app, filesFromDrop, listenForLaunches } from './lib/app.svelte';
   import Library from './components/Library.svelte';
+  import { pwa } from './lib/pwa.svelte';
 
   let dragging = $state(false);
   const loadReader = () => import('./reader/Reader.svelte');
+  const loadNote = () => import('./reader/NoteView.svelte');
 
   $effect(() => {
     document.documentElement.dataset.theme = app.settings.theme;
   });
 
+  $effect(() => {
+    if (pwa.updateReady && !app.open) void app.settled().then(() => (app.open ? undefined : pwa.applyUpdate()));
+  });
+
   onMount(() => {
-    void app.init();
-    type LaunchWindow = Window & { launchQueue?: { setConsumer: (f: (p: { files: FileSystemFileHandle[] }) => void) => void } };
-    (window as LaunchWindow).launchQueue?.setConsumer(async ({ files }) => {
-      const h = files[0];
-      if (h) app.openFile(await h.getFile(), h);
-    });
+    void app.init().then(listenForLaunches);
     // Warm the reader chunk while the library is idle so opening a file feels instant.
     requestIdleCallback?.(() => void loadReader());
   });
@@ -32,7 +33,7 @@
     e.preventDefault();
     dragging = false;
     const [first] = await filesFromDrop(e);
-    if (first) app.openFile(first.file, first.handle);
+    if (first) await app.openFile(first.file, first.handle);
   }
 </script>
 
@@ -40,11 +41,19 @@
 
 {#if app.open}
   {#key app.open}
-    {#await loadReader() then m}
-      <m.default request={app.open} />
-    {:catch err}
-      <p class="fatal">Could not load the reader: {String(err)}</p>
-    {/await}
+    {#if app.open.kind === 'pdf'}
+      {#await loadReader() then m}
+        <m.default request={app.open} />
+      {:catch err}
+        <p class="fatal">Could not load the reader: {String(err)}</p>
+      {/await}
+    {:else}
+      {#await loadNote() then m}
+        <m.default request={app.open} />
+      {:catch err}
+        <p class="fatal">Could not load the note editor: {String(err)}</p>
+      {/await}
+    {/if}
   {/key}
 {:else}
   <Library />

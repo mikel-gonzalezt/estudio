@@ -34,8 +34,8 @@ export default defineConfig({
     svelte(),
     pdfjsAssets(),
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      registerType: 'prompt',
+      includeAssets: ['icon.svg', 'icon.ico'],
       manifest: {
         name: 'Estudio',
         short_name: 'Estudio',
@@ -45,17 +45,14 @@ export default defineConfig({
         display: 'standalone',
         icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
         file_handlers: [{ action: '/', accept: { 'application/pdf': ['.pdf'] } }],
+        // A PDF opened from Explorer goes to the window that is already open, through launchQueue.
+        launch_handler: { client_mode: ['focus-existing', 'auto'] },
       },
       workbox: {
-        globPatterns: ['**/*.{js,mjs,css,html,svg}'],
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/pdfjs/'),
-            handler: 'CacheFirst',
-            options: { cacheName: 'pdfjs-assets' },
-          },
-        ],
+        // Everything a PDF needs is precached so the installed app opens files with the local server stopped.
+        globPatterns: ['**/*.{js,mjs,css,html,svg,ico,wasm,bcmap,pfb,ttf}', 'pdfjs/**/*'],
+        globIgnores: ['**/LICENSE*', 'pdfjs/wasm/quickjs*'],
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       },
     }),
   ],
