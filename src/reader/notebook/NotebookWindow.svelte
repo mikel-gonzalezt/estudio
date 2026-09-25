@@ -22,7 +22,7 @@
     get context() {
       return context;
     },
-    jump: (page) => channel.post({ t: 'jump', page }),
+    follow: (target) => channel.post({ t: 'follow', target }),
   };
 
   async function setAutoLinks(on: boolean) {

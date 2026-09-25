@@ -3,7 +3,7 @@ import { askPermission, hasPermission } from './fsaccess';
 import type { Vault, VaultId } from './types';
 import { dirAt, fileAt, moveEntry, pathIn, removeEntry, walk, writeFile } from './vault';
 import {
-  EMPTY_TREE, ROOT, buildTree, canMove, checkName, companionsOf, joinPath, nameOf, parentOf, stemOf, uniqueName,
+  EMPTY_TREE, ROOT, buildTree, canMove, checkName, companionsOf, joinPath, nameOf, parentOf, resolvePdfLink, stemOf, uniqueName,
   type NameProblem, type Tree, type VaultPath,
 } from './vaulttree';
 
@@ -118,6 +118,11 @@ class Vaults {
     const next = new Set(this.expanded);
     for (let p = parentOf(path); p !== ROOT; p = parentOf(p)) next.add(p);
     this.expanded = next;
+  }
+
+  /** The PDF an Obsidian-style link names, looked up from the folder `fromDir` of the open vault. */
+  resolvePdf(file: string, fromDir: VaultPath): VaultPath | null {
+    return this.current ? resolvePdfLink(this.tree, file, fromDir) : null;
   }
 
   /** The vault path of a file handle, when it lies inside the open vault. */

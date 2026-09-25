@@ -8,7 +8,7 @@ import {
 } from '@codemirror/view';
 import { quoteBlock, QUOTE_MIME, type QuoteDrag } from '../../lib/notebook';
 import {
-  autoLinkInsert, blockInsertion, chipText, formatPageLink, isFirstKeystroke, parsePageLinks, startsParagraph,
+  autoLinkInsert, blockInsertion, chipText, formatPageLink, isFirstKeystroke, parsePageLinks, startsParagraph, type LinkTarget,
 } from '../../lib/pagelink';
 import type { NotebookHost } from './host.svelte';
 
@@ -29,20 +29,22 @@ export interface NotebookEditor {
 }
 
 class ChipWidget extends WidgetType {
-  constructor(readonly page: number, readonly text: string) {
+  constructor(readonly target: LinkTarget, readonly text: string) {
     super();
   }
 
   override eq(o: ChipWidget) {
-    return o.page === this.page && o.text === this.text;
+    return o.target.page === this.target.page && o.target.file === this.target.file && o.text === this.text;
   }
 
   toDOM() {
+    const { page, file } = this.target;
     const el = document.createElement('span');
     el.className = 'cm-plink';
-    el.dataset.page = String(this.page);
+    el.dataset.page = String(page);
+    if (file) el.dataset.file = file;
     el.textContent = this.text;
-    el.title = `Page ${this.page}: click to open`;
+    el.title = `${file ? `${file}, page` : 'Page'} ${page}: click to open`;
     return el;
   }
 
@@ -54,7 +56,7 @@ class ChipWidget extends WidgetType {
 function chipDecorations(doc: Text): DecorationSet {
   const b = new RangeSetBuilder<Decoration>();
   for (const l of parsePageLinks(doc.toString())) {
-    b.add(l.from, l.to, Decoration.replace({ widget: new ChipWidget(l.page, chipText(l)) }));
+    b.add(l.from, l.to, Decoration.replace({ widget: new ChipWidget({ page: l.page, file: l.file }, chipText(l)) }));
   }
   return b.finish();
 }
@@ -88,7 +90,7 @@ function linkCompletions(host: NotebookHost, pdfName: string | undefined) {
     const { page, sections, annotations } = host.context;
     const matches = (s: string) => !q || s.toLowerCase().includes(q);
     const options: Completion[] = [
-      { label: `Current page (p. ${page})`, apply: applyLink(pdfName, page), section: GROUPS.page, type: 'page' },
+      ...(page === null ? [] : [{ label: `Current page (p. ${page})`, apply: applyLink(pdfName, page), section: GROUPS.page, type: 'page' }]),
       ...sections.filter((s) => matches(s.title)).slice(0, 40).map((s): Completion => ({
         label: `${'  '.repeat(Math.min(s.depth, 3))}${s.title}`, detail: `p. ${s.page}`,
         apply: applyLink(pdfName, s.page, s.title), section: GROUPS.section, type: 'section',
@@ -111,9 +113,11 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
   const { host, pdfName } = hooks;
 
   const insertCurrentLink: Command = (view) => {
+    const { page } = host.context;
+    if (page === null) return false;
     const { from } = view.state.selection.main;
     const prev = view.state.sliceDoc(from - 1, from);
-    const insert = `${prev && !/\s/.test(prev) ? ' ' : ''}${formatPageLink(host.context.page, undefined, pdfName)} `;
+    const insert = `${prev && !/\s/.test(prev) ? ' ' : ''}${formatPageLink(page, undefined, pdfName)} `;
     view.dispatch(view.state.update(view.state.replaceSelection(insert), { userEvent: 'input' }));
     return true;
   };
@@ -121,27 +125,29 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
   const enterWithLink: Command = (view) => {
     const sel = view.state.selection.main;
     const line = view.state.doc.lineAt(sel.head);
-    const fire = hooks.autoLinks() && sel.empty && startsParagraph(line.text, sel.head === line.to);
+    const page = host.context.page;
+    const fire = page !== null && hooks.autoLinks() && sel.empty && startsParagraph(line.text, sel.head === line.to);
     if (!insertNewlineContinueMarkup(view)) insertNewlineAndIndent(view);
     if (!fire) return true;
     const pos = view.state.selection.main.head;
-    const insert = autoLinkInsert(view.state.doc.toString(), pos, host.context.page, pdfName);
+    const insert = autoLinkInsert(view.state.doc.toString(), pos, page, pdfName);
     if (insert) view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length }, userEvent: 'input.autolink' });
     return true;
   };
 
   const firstKeystrokeLink = EditorState.transactionFilter.of((tr) => {
-    if (!tr.docChanged || !hooks.autoLinks() || !isFirstKeystroke(tr.startState.doc.length, tr.annotation(Transaction.userEvent))) return tr;
-    return [tr, { changes: { from: 0, insert: autoLinkInsert('', 0, host.context.page, pdfName)! }, sequential: true }];
+    const { page } = host.context;
+    if (page === null || !tr.docChanged || !hooks.autoLinks() || !isFirstKeystroke(tr.startState.doc.length, tr.annotation(Transaction.userEvent))) return tr;
+    return [tr, { changes: { from: 0, insert: `${formatPageLink(page, undefined, pdfName)} ` }, sequential: true }];
   });
 
   const events = EditorView.domEventHandlers({
     mousedown(e, view) {
       const chip = (e.target as HTMLElement).closest<HTMLElement>('.cm-plink');
       const page = chip ? Number(chip.dataset.page) : null;
-      if (page) {
+      if (chip && page) {
         e.preventDefault();
-        host.jump(page);
+        host.follow({ page, file: chip.dataset.file ?? null });
         return true;
       }
       if (!(e.ctrlKey || e.metaKey)) return false;
@@ -149,7 +155,7 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
       const l = pos === null ? null : linkAt(view.state.doc, pos);
       if (!l) return false;
       e.preventDefault();
-      host.jump(l.page);
+      host.follow(l);
       return true;
     },
     dragover(e) {
@@ -185,7 +191,9 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
         EditorView.lineWrapping,
         new LanguageSupport(markdownLanguage),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        placeholder('# Notes\n\nWrite in Markdown. [[ links a page, Ctrl+L links the page you are reading.'),
+        placeholder(host.context.page === null
+          ? '# Notes\n\nWrite in Markdown. [[paper.pdf#page=3]] links a page of a PDF in the vault.'
+          : '# Notes\n\nWrite in Markdown. [[ links a page, Ctrl+L links the page you are reading.'),
         chips,
         autocompletion({ override: [linkCompletions(host, pdfName)], icons: false }),
         Prec.high(keymap.of([

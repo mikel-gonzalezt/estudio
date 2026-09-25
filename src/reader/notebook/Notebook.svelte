@@ -12,7 +12,8 @@
     doc: NotebookDoc;
     host: NotebookHost;
     autoLinks: boolean;
-    onAutoLinks: (on: boolean) => void;
+    /** Absent where there is no page being read to link, as in a standalone note. */
+    onAutoLinks?: (on: boolean) => void;
     actions?: Snippet;
     autofocus?: boolean;
   } = $props();
@@ -26,7 +27,7 @@
     if (!a) return;
     e.preventDefault();
     const page = a.dataset.page;
-    if (page) host.jump(Number(page));
+    if (page) host.follow({ page: Number(page), file: a.dataset.file ?? null });
     else if (/^https?:/i.test(a.href)) window.open(a.href, '_blank', 'noopener');
   }
 </script>
@@ -38,14 +39,14 @@
         <button role="tab" aria-selected={mode === m} class:on={mode === m} onclick={() => (mode = m as Mode)}>{label}</button>
       {/each}
     </div>
-    <button
+    {#if onAutoLinks}<button
       class="toggle"
       class:on={autoLinks}
       aria-pressed={autoLinks}
       title="Auto page links: a new paragraph starts with a link to the page you are reading when that page changed"
       onclick={() => onAutoLinks(!autoLinks)}
       data-testid="auto-links"
-    ><Icon name="link" size={14} /><span>Auto links</span></button>
+    ><Icon name="link" size={14} /><span>Auto links</span></button>{/if}
     {@render actions?.()}
   </div>
   {#if mode !== 'preview'}

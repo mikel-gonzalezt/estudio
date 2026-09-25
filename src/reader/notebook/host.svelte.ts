@@ -1,4 +1,8 @@
+import { app } from '../../lib/app.svelte';
 import type { AnnRef, NotebookContext, Section } from '../../lib/notebooksync';
+import type { LinkTarget } from '../../lib/pagelink';
+import { vaults } from '../../lib/vaults.svelte';
+import { parentOf } from '../../lib/vaulttree';
 import { annotationNote, annotationText, KIND_LABEL, type StoredAnnotation } from '../../lib/types';
 import { outline, resolveDest, type OutlineNode } from '../pdf';
 import type { Reader } from '../session.svelte';
@@ -6,7 +10,7 @@ import type { Reader } from '../session.svelte';
 /** What the notebook editor reads from wherever the document is being read, in this window or another. */
 export interface NotebookHost {
   readonly context: NotebookContext;
-  jump(page: number): void;
+  follow(target: LinkTarget): void;
 }
 
 export const annotationQuote = (a: StoredAnnotation) => annotationText(a) || annotationNote(a) || KIND_LABEL[a.kind];
@@ -46,7 +50,11 @@ export class ReaderHost implements NotebookHost {
     annotations: this.#annotations,
   }));
 
-  jump(page: number) {
-    this.#reader.jump({ page, y: 0 });
+  /** A link naming another PDF of the vault opens that PDF; any other link jumps within this one. */
+  follow({ page, file }: LinkTarget) {
+    const place = this.#reader.source.place;
+    const other = file && place ? vaults.resolvePdf(file, parentOf(place.path)) : null;
+    if (other && other !== place?.path) void app.openVaultPdf(other, page);
+    else this.#reader.jump({ page, y: 0 });
   }
 }

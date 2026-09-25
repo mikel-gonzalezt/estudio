@@ -1,4 +1,5 @@
 import type { NotebookHome } from './notebookstore';
+import type { LinkTarget } from './pagelink';
 import type { DocId, VaultId } from './types';
 
 /**
@@ -23,8 +24,11 @@ export const nextRev = (r: Rev, by: string): Rev => ({ n: r.n + 1, by });
 export interface Section { title: string; page: number; depth: number }
 export interface AnnRef { id: string; page: number; text: string }
 
-/** What the notebook needs from the reader: the page on screen, and link targets for autocomplete. */
-export interface NotebookContext { title: string; page: number; sections: Section[]; annotations: AnnRef[] }
+/**
+ * What the notebook needs from the reader: the page on screen, and link targets for autocomplete.
+ * `page` is null for a standalone note, which has no document on screen to link.
+ */
+export interface NotebookContext { title: string; page: number | null; sections: Section[]; annotations: AnnRef[] }
 
 export type NotebookMsg =
   | { t: 'text'; markdown: string; rev: Rev }
@@ -37,7 +41,7 @@ export type NotebookMsg =
   /** Reader asks the pop-out to close. */
   | { t: 'close' }
   | { t: 'context'; ctx: NotebookContext }
-  | { t: 'jump'; page: number }
+  | { t: 'follow'; target: LinkTarget }
   | { t: 'autoLinks'; on: boolean };
 
 export const channelName = (docId: string) => `estudio-notebook:${docId}`;

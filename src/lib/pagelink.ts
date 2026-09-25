@@ -1,19 +1,22 @@
-/** A page link found in notebook text; `from`/`to` are offsets of the whole `[[...]]`. */
-export interface PageLink { from: number; to: number; page: number; label: string | null }
-
 /**
- * Reads `[[p12]]`, `[[p12|label]]`, and Obsidian's PDF form `[[paper.pdf#page=12]]` /
- * `[[paper.pdf#page=12|label]]`. Only the page part is a target; the file part is ignored.
+ * A page link found in notebook text; `from`/`to` are offsets of the whole `[[...]]`. `file` is the
+ * PDF an Obsidian-form link names, as written (a name or a vault path), and null for `[[p12]]`.
  */
-const SOURCE = String.raw`\[\[(?:p(\d+)|[^\[\]|\n]*?\.pdf#page=(\d+))(?:\|([^\[\]\n]*))?\]\]`;
+export interface PageLink { from: number; to: number; page: number; file: string | null; label: string | null }
+
+/** Where a link goes: a page, in the named PDF or else in the document the notebook belongs to. */
+export type LinkTarget = Pick<PageLink, 'page' | 'file'>;
+
+/** Reads `[[p12]]`, `[[p12|label]]`, and Obsidian's PDF form `[[paper.pdf#page=12]]` / `[[paper.pdf#page=12|label]]`. */
+const SOURCE = String.raw`\[\[(?:p(\d+)|([^\[\]|\n]*?\.pdf)#page=(\d+))(?:\|([^\[\]\n]*))?\]\]`;
 
 export const pageLinkPattern = () => new RegExp(SOURCE, 'gi');
 
 function toLink(m: RegExpExecArray, offset = 0): PageLink | null {
-  const page = Number(m[1] ?? m[2]);
+  const page = Number(m[1] ?? m[3]);
   if (!Number.isInteger(page) || page < 1) return null;
-  const label = m[3]?.trim();
-  return { from: offset + m.index, to: offset + m.index + m[0].length, page, label: label || null };
+  const label = m[4]?.trim();
+  return { from: offset + m.index, to: offset + m.index + m[0].length, page, file: m[2]?.trim() || null, label: label || null };
 }
 
 export function parsePageLinks(text: string, offset = 0): PageLink[] {

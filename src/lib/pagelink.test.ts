@@ -8,16 +8,17 @@ import { DEFAULT_MEANINGS } from './types';
 
 describe('page link parsing', () => {
   it('reads the native form with offsets', () => {
-    expect(parsePageLinks('a [[p3]] b')).toEqual([{ from: 2, to: 8, page: 3, label: null }]);
+    expect(parsePageLinks('a [[p3]] b')).toEqual([{ from: 2, to: 8, page: 3, file: null, label: null }]);
   });
 
   it('reads labels on the native form', () => {
-    expect(parsePageLinks('[[p12|Attention]]')).toEqual([{ from: 0, to: 17, page: 12, label: 'Attention' }]);
+    expect(parsePageLinks('[[p12|Attention]]')).toEqual([{ from: 0, to: 17, page: 12, file: null, label: 'Attention' }]);
   });
 
   it("reads Obsidian's PDF link form, with and without a label", () => {
-    expect(parsePageLinks('[[papers/Attention Is All You Need.pdf#page=4]]').map((l) => [l.page, l.label])).toEqual([[4, null]]);
-    expect(parsePageLinks('[[x.PDF#page=9|Fig. 2]]').map((l) => [l.page, l.label])).toEqual([[9, 'Fig. 2']]);
+    expect(parsePageLinks('[[papers/Attention Is All You Need.pdf#page=4]]').map((l) => [l.file, l.page, l.label]))
+      .toEqual([['papers/Attention Is All You Need.pdf', 4, null]]);
+    expect(parsePageLinks('[[x.PDF#page=9|Fig. 2]]').map((l) => [l.file, l.page, l.label])).toEqual([['x.PDF', 9, 'Fig. 2']]);
   });
 
   it('ignores lookalikes', () => {
@@ -42,13 +43,13 @@ describe('formatPageLink', () => {
 
   it('keeps labels parseable', () => {
     const link = formatPageLink(5, 'a [weird] | label\nhere');
-    expect(parsePageLinks(link)).toEqual([{ from: 0, to: link.length, page: 5, label: 'a weird label here' }]);
+    expect(parsePageLinks(link)).toEqual([{ from: 0, to: link.length, page: 5, file: null, label: 'a weird label here' }]);
   });
 
   it('names the PDF Obsidian-style for vault notebooks', () => {
     expect(formatPageLink(3, undefined, 'my paper.pdf')).toBe('[[my paper.pdf#page=3|p. 3]]');
     expect(formatPageLink(3, 'Fig | 2', 'a.pdf')).toBe('[[a.pdf#page=3|Fig 2]]');
-    expect(parsePageLinks(formatPageLink(8, 'Results', 'dir name/a.pdf'))[0]).toMatchObject({ page: 8, label: 'Results' });
+    expect(parsePageLinks(formatPageLink(8, 'Results', 'dir name/a.pdf'))[0]).toMatchObject({ page: 8, file: 'dir name/a.pdf', label: 'Results' });
     expect(autoLinkInsert('', 0, 4, 'a.pdf')).toBe('[[a.pdf#page=4|p. 4]] ');
   });
 
@@ -126,6 +127,12 @@ describe('page links in rendering and export', () => {
     expect(html).toContain('>Intro</a>');
     expect(html).toContain('data-page="8"');
     expect(html).toContain('p.&nbsp;8');
+  });
+
+  it('keeps the named PDF on the chip so a note can open it', () => {
+    const html = renderMarkdown('[[a "b".pdf#page=8|x]] [[p2]]');
+    expect(html).toContain('data-file="a &quot;b&quot;.pdf"');
+    expect(html.match(/data-file/g)).toHaveLength(1);
   });
 
   it('escapes labels', () => {

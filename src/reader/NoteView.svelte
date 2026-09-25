@@ -4,6 +4,7 @@
   import { fileNotebook } from '../lib/notebookstore';
   import type { DocId } from '../lib/types';
   import { vaults } from '../lib/vaults.svelte';
+  import { parentOf } from '../lib/vaulttree';
   import Icon from '../components/Icon.svelte';
   import VaultTree from '../components/VaultTree.svelte';
   import Notebook from './notebook/Notebook.svelte';
@@ -15,12 +16,19 @@
   const place = untrack(() => request.place);
   const docId = `note:${place.path}` as DocId;
   const doc = new NotebookDoc(docId, new NotebookChannel(docId), fileNotebook(place.dir, place.name));
-  const host: NotebookHost = {
-    context: { title: place.name, page: 1, sections: [], annotations: [] },
-    jump: () => {},
-  };
   let loaded = $state(false);
   let error = $state('');
+  let notice = $state('');
+
+  /** A note is not about one document, so only links that name a PDF lead anywhere. */
+  const host: NotebookHost = {
+    context: { title: place.name, page: null, sections: [], annotations: [] },
+    follow({ page, file }) {
+      const path = file ? vaults.resolvePdf(file, parentOf(place.path)) : null;
+      if (path) void app.openVaultPdf(path, page);
+      else notice = file ? `There is no ${file} in this vault.` : `[[p${page}]] names no PDF; write it as [[paper.pdf#page=${page}]].`;
+    },
+  };
 
   onMount(async () => {
     document.title = `${request.place.name.replace(/\.md$/i, '')} · Estudio`;
@@ -47,7 +55,10 @@
   {#if vaults.current}<aside><VaultTree compact current={request.place.path} /></aside>{/if}
   <main data-testid="note-view">
     {#if error}<p class="error">Could not open {request.place.name}: {error}</p>
-    {:else if loaded}<Notebook {doc} {host} autoLinks={false} onAutoLinks={() => {}} />{/if}
+    {:else if loaded}
+      {#if notice}<p class="notice" role="status">{notice} <button class="btn" onclick={() => (notice = '')}>OK</button></p>{/if}
+      <Notebook {doc} {host} autoLinks={false} />
+    {/if}
   </main>
 </div>
 
@@ -67,4 +78,5 @@
   main { grid-area: main; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
   main > :global(*) { flex: 1; min-height: 0; }
   .error { padding: 24px; color: var(--danger); }
+  main > .notice { flex: none; margin: 0; padding: 6px 12px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
 </style>

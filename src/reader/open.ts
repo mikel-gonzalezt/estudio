@@ -45,6 +45,8 @@ export async function openDocument(request: PdfRequest): Promise<Opened> {
         lastPage: 1, lastZoom: 1, pagesSeen: [1], addedAt: now, openedAt: now, readingMs: 0,
       };
 
+  if (request.page) doc.lastPage = Math.min(Math.max(1, request.page), pdf.numPages);
+
   let annotations: StoredAnnotation[] = stored;
   let state: SaveState = { kind: 'saved' };
   let behind = false;

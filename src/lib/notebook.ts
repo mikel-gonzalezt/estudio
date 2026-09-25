@@ -44,10 +44,10 @@ const md = new Marked({
       start: (src: string) => src.indexOf('[['),
       tokenizer(src: string) {
         const l = pageLinkAtStart(src);
-        return l ? { type: 'pageLink', raw: src.slice(0, l.to), page: l.page, label: l.label } : undefined;
+        return l ? { type: 'pageLink', raw: src.slice(0, l.to), page: l.page, file: l.file, label: l.label } : undefined;
       },
       renderer: (token) =>
-        `<a href="#p${token.page}" class="plink" data-page="${token.page}" title="Page ${token.page}">${escapeHtml(chipText({ page: token.page, label: token.label })).replace(/ /g, '&nbsp;')}</a>`,
+        `<a href="#p${token.page}" class="plink" data-page="${token.page}"${token.file ? ` data-file="${escapeHtml(token.file)}"` : ''} title="${token.file ? `${escapeHtml(token.file)}, page` : 'Page'} ${token.page}">${escapeHtml(chipText({ page: token.page, label: token.label })).replace(/ /g, '&nbsp;')}</a>`,
     },
   ],
 });

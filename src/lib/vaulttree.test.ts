@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTree, canMove, checkName, childrenOf, companionsOf, notebookPathOf, uniqueName, type Entry } from './vaulttree';
+import { buildTree, canMove, checkName, childrenOf, companionsOf, notebookPathOf, resolvePdfLink, uniqueName, type Entry } from './vaulttree';
 
 const f = (path: string): Entry => ({ path, kind: 'file' });
 const d = (path: string): Entry => ({ path, kind: 'directory' });
@@ -51,5 +51,29 @@ describe('vault tree', () => {
     expect(canMove(tree, 'b paper.pdf', 'Year 10')).toBe(true);
     expect(canMove(tree, 'b paper.pdf', 'a note.md')).toBe(false);
     expect(canMove(tree, '', 'Year 10')).toBe(false);
+  });
+});
+
+describe('resolving PDF links from notes', () => {
+  it('takes paths relative to the note, then to the vault', () => {
+    expect(resolvePdfLink(tree, 'lecture 9.pdf', 'Year 2')).toBe('Year 2/lecture 9.pdf');
+    expect(resolvePdfLink(tree, 'Year 2/deep/x.pdf', '')).toBe('Year 2/deep/x.pdf');
+    expect(resolvePdfLink(tree, 'deep/x.pdf', 'Year 2')).toBe('Year 2/deep/x.pdf');
+  });
+
+  it('finds a bare file name anywhere, ignoring case', () => {
+    expect(resolvePdfLink(tree, 'X.PDF', '')).toBe('Year 2/deep/x.pdf');
+    expect(resolvePdfLink(tree, 'b paper.pdf', 'Year 10')).toBe('b paper.pdf');
+  });
+
+  it('prefers the note folder, then the shortest path', () => {
+    const t = buildTree([d('a'), d('a/b'), f('a/b/s.pdf'), f('a/s.pdf'), d('c'), f('c/s.pdf')]);
+    expect(resolvePdfLink(t, 's.pdf', 'a/b')).toBe('a/b/s.pdf');
+    expect(resolvePdfLink(t, 's.pdf', '')).toBe('a/s.pdf');
+  });
+
+  it('returns null for missing files and non-PDFs', () => {
+    expect(resolvePdfLink(tree, 'nope.pdf', '')).toBeNull();
+    expect(resolvePdfLink(tree, 'a note.md', '')).toBeNull();
   });
 });

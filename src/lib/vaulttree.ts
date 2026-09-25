@@ -97,3 +97,21 @@ export function canMove(tree: Tree, from: VaultPath, toDir: VaultPath): boolean 
   if (toDir === from || toDir.startsWith(`${from}/`)) return false;
   return checkName(tree, toDir, node.name) === null;
 }
+
+/**
+ * The PDF that a link such as `[[paper.pdf#page=3]]` names, resolved the way Obsidian does: a path
+ * relative to the linking note's folder or to the vault, else any PDF whose path ends with the
+ * target, preferring the note's own folder and then the shortest path.
+ */
+export function resolvePdfLink(tree: Tree, target: string, from: VaultPath): VaultPath | null {
+  const t = target.trim().replace(/^\/+/, '');
+  const exact = [joinPath(from, t), t].find((p) => tree.get(p)?.kind === 'pdf');
+  if (exact) return exact;
+  const want = t.toLowerCase();
+  const depth = (p: VaultPath) => p.split('/').length;
+  const hits = [...tree.values()]
+    .filter((n) => n.kind === 'pdf' && (n.path.toLowerCase() === want || n.path.toLowerCase().endsWith(`/${want}`)))
+    .map((n) => n.path)
+    .sort((a, b) => Number(parentOf(b) === from) - Number(parentOf(a) === from) || depth(a) - depth(b) || collator.compare(a, b));
+  return hits[0] ?? null;
+}

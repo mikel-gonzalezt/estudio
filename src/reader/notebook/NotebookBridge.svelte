@@ -8,7 +8,7 @@
     const study = reader.study;
     return study.notebook.channel.on((m) => {
       if (m.t === 'hello') study.notebook.channel.post({ t: 'context', ctx: $state.snapshot(reader.notebookHost.context) });
-      else if (m.t === 'jump') reader.notebookHost.jump(m.page);
+      else if (m.t === 'follow') reader.notebookHost.follow(m.target);
       else if (m.t === 'autoLinks') app.settings.autoPageLinks = m.on;
     });
   });

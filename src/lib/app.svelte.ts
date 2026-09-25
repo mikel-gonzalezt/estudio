@@ -2,11 +2,13 @@ import { getSettings, listDocs, putSettings } from './db';
 import { askPermission } from './fsaccess';
 import { DEFAULT_SETTINGS, type DocRecord, type Settings, type VaultId } from './types';
 import { vaults } from './vaults.svelte';
+import type { VaultPath } from './vaulttree';
 
 /** Where a file sits inside the open vault: the vault, its folder handle, its name and its vault path. */
 export interface VaultPlace { vault: VaultId; dir: FileSystemDirectoryHandle; name: string; path: string }
 
-export interface PdfRequest { kind: 'pdf'; file: File; handle?: FileSystemFileHandle; place?: VaultPlace }
+/** `page` opens the document there instead of where reading last stopped. */
+export interface PdfRequest { kind: 'pdf'; file: File; handle?: FileSystemFileHandle; place?: VaultPlace; page?: number }
 export interface NoteRequest { kind: 'note'; handle: FileSystemFileHandle; place: VaultPlace }
 export type OpenRequest = PdfRequest | NoteRequest;
 
@@ -48,14 +50,20 @@ class App {
   }
 
   /** Opens a PDF. With a handle inside the open vault, its notebook becomes the `.md` file beside it. */
-  async openFile(file: File, handle?: FileSystemFileHandle, place?: VaultPlace) {
+  async openFile(file: File, handle?: FileSystemFileHandle, place?: VaultPlace, page?: number) {
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
       this.error = `${file.name} is not a PDF`;
       return;
     }
     this.error = '';
     const at = place ?? (handle ? await vaults.locate(handle) : null);
-    this.open = { kind: 'pdf', file, ...(handle ? { handle } : {}), ...(at ? { place: at } : {}) };
+    this.open = { kind: 'pdf', file, ...(handle ? { handle } : {}), ...(at ? { place: at } : {}), ...(page ? { page } : {}) };
+  }
+
+  /** Opens a PDF of the open vault, at `page` when given. */
+  async openVaultPdf(path: VaultPath, page?: number) {
+    const { handle, ...place } = await vaults.place(path);
+    await this.openFile(await handle.getFile(), handle, place, page);
   }
 
   openNote(handle: FileSystemFileHandle, place: VaultPlace) {
