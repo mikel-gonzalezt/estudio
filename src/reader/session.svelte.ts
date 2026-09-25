@@ -1,6 +1,7 @@
 import { tick } from 'svelte';
 import type { DocRecord, StoredAnnotation, XY } from '../lib/types';
 import { Annotator } from './annotator.svelte';
+import { Study } from './study.svelte';
 import { displayToPage, normalisePoint, pageToDisplay } from '../lib/geometry';
 import type { PointerCtx } from './tools';
 import { putDoc } from '../lib/db';
@@ -18,6 +19,7 @@ export class Reader {
   readonly pdf: PDFDocumentProxy;
   readonly info: PageInfo[];
   readonly ann: Annotator;
+  readonly study: Study;
   doc: DocRecord = $state()!;
   scale = $state(1);
   currentPage = $state(1);
@@ -34,6 +36,7 @@ export class Reader {
   constructor(pdf: PDFDocumentProxy, info: PageInfo[], doc: DocRecord, annotations: StoredAnnotation[]) {
     this.pdf = pdf;
     this.ann = new Annotator(this, doc.id, annotations);
+    this.study = new Study(doc.id);
     this.info = info;
     this.doc = doc;
     this.scale = doc.lastZoom;

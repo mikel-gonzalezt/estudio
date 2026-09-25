@@ -14,7 +14,24 @@
   ];
 
   const text = $derived(menu.parts.map((p) => p.text).join(' '));
-  const left = $derived(Math.min(menu.x - 100, window.innerWidth - 330));
+  const left = $derived(Math.min(menu.x - 100, window.innerWidth - 290));
+
+  const page = $derived(menu.parts[0]!.page);
+
+  function done() {
+    ann.menu = null;
+    window.getSelection()?.removeAllRanges();
+  }
+
+  function quote() {
+    reader.study.quote(text, page);
+    done();
+  }
+
+  function card() {
+    reader.study.draft = { page, text, cloze: false };
+    done();
+  }
 
   async function copy() {
     await navigator.clipboard.writeText(text).catch(() => {});
@@ -26,10 +43,12 @@
 <div class="menu" style:left="{Math.max(8, left)}px" style:top="{menu.y + 8}px" onpointerdown={(e) => e.stopPropagation()} data-testid="selection-menu">
   {#each marks as m (m.kind)}
     <button title={m.label} onclick={() => ann.markParts(m.kind, menu.parts)} style:--c={COLOR_HEX[ann.color]}>
-      <Icon name={m.icon} size={16} /><span>{m.label}</span>
+      <Icon name={m.icon} size={16} />
     </button>
   {/each}
   <span class="sep"></span>
+  <button title="Quote to notebook" onclick={quote}><Icon name="quote" size={16} /><span>Quote</span></button>
+  <button title="Make a flashcard" onclick={card}><Icon name="card" size={16} /><span>Card</span></button>
   <button title="Copy text" onclick={copy}><Icon name="copy" size={16} /></button>
 </div>
 
@@ -48,5 +67,6 @@
   }
   button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px; font-size: 12px; }
   button:first-child :global(svg) { color: var(--c); }
+  button:first-child { background: color-mix(in srgb, var(--c) 22%, transparent); }
   .sep { width: 1px; height: 18px; background: var(--border); margin: 0 3px; }
 </style>

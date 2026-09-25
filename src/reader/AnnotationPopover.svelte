@@ -3,7 +3,7 @@
   import Icon from '../components/Icon.svelte';
   import { app } from '../lib/app.svelte';
   import { pageToDisplay } from '../lib/geometry';
-  import { annotationAnchor, COLOR_HEX, COLOR_IDS, KIND_LABEL, type ColorId, type StoredAnnotation } from '../lib/types';
+  import { annotationAnchor, annotationText, COLOR_HEX, COLOR_IDS, KIND_LABEL, type ColorId, type StoredAnnotation } from '../lib/types';
   import { displaySize } from './pdf';
   import type { Reader } from './session.svelte';
 
@@ -33,6 +33,23 @@
   function setColor(c: ColorId) {
     commit();
     annotator.update(id, (x) => (x.kind === 'ink' ? x : { ...x, color: c }));
+  }
+
+  function sourceText(): string {
+    const x = untrack(() => a);
+    return annotationText(x) || note || KIND_LABEL[x.kind];
+  }
+
+  function quote() {
+    commit();
+    const x = untrack(() => a);
+    const body = annotationText(x);
+    reader.study.quote(body || note || KIND_LABEL[x.kind], x.page, body ? note.trim() : '');
+  }
+
+  function card() {
+    commit();
+    reader.study.draft = { page: initial.page, text: sourceText(), annId: id, cloze: false };
   }
 
   function close() {
@@ -69,6 +86,8 @@
   <input type="text" bind:value={tags} onblur={commit} onkeydown={(e) => { if (e.key === 'Enter') commit(); }} placeholder="Tags, comma separated" />
 
   <footer>
+    <button class="act" onclick={quote} title="Quote to notebook"><Icon name="quote" size={16} /> Quote</button>
+    <button class="act" onclick={card} title="Make a flashcard"><Icon name="card" size={16} /> Card</button>
     <div class="grow"></div>
     <button class="danger" title="Delete (Del)" onclick={() => ann.remove(a.id)}><Icon name="trash" size={16} /></button>
   </footer>
@@ -105,5 +124,6 @@
   textarea { resize: vertical; min-height: 56px; }
   footer { display: flex; align-items: center; gap: 4px; }
   .grow { flex: 1; }
+  .act { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid var(--border); }
   .danger { color: var(--danger); padding: 4px; }
 </style>

@@ -70,6 +70,8 @@
     <button title="Fit width (Ctrl 0)" onclick={() => reader.fitWidth()}><Icon name="fitWidth" /></button>
     <button title="Fit page (Ctrl 9)" onclick={() => reader.fitPage()}><Icon name="fitPage" /></button>
     <span class="sep"></span>
+    <button title="Notebook (N)" class:on={reader.study.rightOpen && reader.study.rightTab === 'notebook'} onclick={() => reader.study.showRight('notebook')}><Icon name="notebook" /></button>
+    <button title="Flashcards (C)" class:on={reader.study.rightOpen && reader.study.rightTab === 'cards'} onclick={() => reader.study.showRight('cards')}><Icon name="card" /></button>
     <button title="Toggle theme" onclick={() => app.toggleTheme()}><Icon name={app.settings.theme === 'dark' ? 'sun' : 'moon'} /></button>
   </div>
 </header>

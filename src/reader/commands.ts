@@ -24,6 +24,12 @@ export function readerCommands(r: Reader): Command[] {
     { id: 'edit.undo', title: 'Undo', group: 'Annotate', keys: ['Ctrl+Z'], when: () => a.canUndo, run: () => a.undo() },
     { id: 'edit.redo', title: 'Redo', group: 'Annotate', keys: ['Ctrl+Y', 'Ctrl+Shift+Z'], when: () => a.canRedo, run: () => a.redo() },
     { id: 'edit.delete', title: 'Delete selected annotation', group: 'Annotate', keys: ['Delete'], when: () => !!a.selected, run: () => a.selected && a.remove(a.selected) },
+    { id: 'study.notebook', title: 'Open notebook', group: 'Study', keys: ['N'], run: () => r.study.showRight('notebook') },
+    { id: 'study.cards', title: 'Open flashcards', group: 'Study', keys: ['C'], run: () => r.study.showRight('cards') },
+    { id: 'study.togglePane', title: 'Toggle study pane', group: 'Study', keys: ['B'], run: () => (r.study.rightOpen = !r.study.rightOpen) },
+    { id: 'study.review', title: 'Review due cards (this document)', group: 'Study', keys: ['R'], when: () => r.study.dueHere > 0, run: () => (r.study.review = 'doc') },
+    { id: 'study.reviewAll', title: 'Review due cards (all documents)', group: 'Study', when: () => r.study.dueAll > 0, run: () => (r.study.review = 'all') },
+    { id: 'study.newCard', title: 'New flashcard', group: 'Study', run: () => (r.study.draft = { page: r.currentPage, text: '', cloze: false }) },
     { id: 'view.annotations', title: 'Show annotations list', group: 'View', run: () => r.showLeft('annotations') },
 
     { id: 'nav.down', title: 'Scroll down', group: 'Navigate', keys: ['j', 'ArrowDown'], run: () => r.scrollBy(line()) },
