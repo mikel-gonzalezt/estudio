@@ -1,15 +1,10 @@
 import { Marked } from 'marked';
-
-const PAGE_LINK = /\[\[p(\d+)\]\]/g;
-
-export function pageLink(page: number): string {
-  return `[[p${page}]]`;
-}
+import { chipText, formatPageLink, pageLinkAtStart, parsePageLinks } from './pagelink';
 
 /** A blockquote of `text` that ends with a back-link to its page. */
 export function quoteBlock(text: string, page: number): string {
   const lines = text.trim().split(/\r?\n/).map((l) => `> ${l}`);
-  return `${lines.join('\n')} ${pageLink(page)}\n`;
+  return `${lines.join('\n')} ${formatPageLink(page)}\n`;
 }
 
 /** Appends a block, keeping exactly one blank line between blocks. */
@@ -19,7 +14,7 @@ export function appendBlock(markdown: string, block: string): string {
 }
 
 export function pageLinks(markdown: string): number[] {
-  return [...markdown.matchAll(PAGE_LINK)].map((m) => Number(m[1]));
+  return parsePageLinks(markdown).map((l) => l.page);
 }
 
 const escapeHtml = (s: string) =>
@@ -36,12 +31,13 @@ const md = new Marked({
     {
       name: 'pageLink',
       level: 'inline',
-      start: (src: string) => src.indexOf('[[p'),
+      start: (src: string) => src.indexOf('[['),
       tokenizer(src: string) {
-        const m = /^\[\[p(\d+)\]\]/.exec(src);
-        return m ? { type: 'pageLink', raw: m[0], page: Number(m[1]) } : undefined;
+        const l = pageLinkAtStart(src);
+        return l ? { type: 'pageLink', raw: src.slice(0, l.to), page: l.page, label: l.label } : undefined;
       },
-      renderer: (token) => `<a href="#p${token.page}" class="plink" data-page="${token.page}">p.&nbsp;${token.page}</a>`,
+      renderer: (token) =>
+        `<a href="#p${token.page}" class="plink" data-page="${token.page}" title="Page ${token.page}">${escapeHtml(chipText({ page: token.page, label: token.label })).replace(/ /g, '&nbsp;')}</a>`,
     },
   ],
 });
