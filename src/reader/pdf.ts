@@ -1,4 +1,4 @@
-import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist';
+import { AnnotationMode, GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { Rotation } from '../lib/geometry';
 import type { TextRun } from '../lib/citation';
@@ -6,6 +6,12 @@ import type { TextRun } from '../lib/citation';
 GlobalWorkerOptions.workerSrc = workerUrl;
 
 const assets = `${import.meta.env.BASE_URL}pdfjs/`;
+
+/**
+ * Every render uses this mode so that annotations Estudio draws itself, marked `noView` in the
+ * document's annotation storage when they were imported from the file, are not painted twice.
+ */
+export const ANNOTATION_MODE = AnnotationMode.ENABLE_STORAGE;
 
 export function loadPdf(data: ArrayBuffer): Promise<PDFDocumentProxy> {
   return getDocument({

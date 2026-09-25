@@ -9,6 +9,7 @@
   };
 
   let { reader }: { reader: Reader } = $props();
+  const sync = $derived(reader.sync);
   let draft = $state('');
   let editing = $state(false);
 
@@ -41,6 +42,22 @@
     </form>
   </div>
   <div class="group">
+    {#if sync}
+      {@const s = sync.state}
+      {#if s.kind === 'permission'}
+        <button class="save warn" data-testid="save-status" title="Estudio needs permission to write annotations into {sync.handle.name}. They are kept safely until then."
+          onclick={() => sync.allow()}>Unsaved (click to allow)</button>
+      {:else if s.kind === 'error'}
+        <button class="save warn" data-testid="save-status" title={s.message} onclick={() => sync.save()}>Save failed (retry)</button>
+      {:else if s.kind === 'readonly'}
+        <span class="save muted" data-testid="save-status" title={s.reason}>Saved in Estudio only</span>
+      {:else}
+        <span class="save muted" data-testid="save-status" title="Annotations are written into {sync.handle.name}">
+          {s.kind === 'saved' ? 'Saved to file' : 'Saving…'}
+        </span>
+      {/if}
+      <span class="vsep"></span>
+    {/if}
     <span class="muted" title="Active reading time for this document" data-testid="reading-time"><Icon name="timer" size={13} /> {fmt(reader.doc.readingMs)}</span>
     <span class="vsep"></span>
     <PomodoroWidget />
@@ -71,6 +88,8 @@
   button { padding: 2px; }
   .muted :global(svg) { display: inline; vertical-align: -2px; }
   .vsep { width: 1px; height: 16px; background: var(--border); }
+  .save { font-size: 12px; white-space: nowrap; }
+  .save.warn { padding: 1px 10px; border-radius: 10px; background: var(--danger); color: #fff; font-weight: 600; }
   .due { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 10px; font-size: 12px; color: var(--muted); }
   .due.has { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 </style>

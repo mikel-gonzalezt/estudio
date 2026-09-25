@@ -1,6 +1,6 @@
 <script lang="ts">
   import { RenderingCancelledException } from 'pdfjs-dist';
-  import { displaySize } from './pdf';
+  import { ANNOTATION_MODE, displaySize } from './pdf';
   import type { Reader } from './session.svelte';
 
   let { reader }: { reader: Reader } = $props();
@@ -35,7 +35,7 @@
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
     try {
-      await page.render({ canvas, viewport }).promise;
+      await page.render({ canvas, viewport, annotationMode: ANNOTATION_MODE }).promise;
     } catch (e) {
       rendered.delete(n);
       if (!(e instanceof RenderingCancelledException)) throw e;

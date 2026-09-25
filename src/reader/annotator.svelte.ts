@@ -2,7 +2,7 @@ import { writeAnnotations } from '../lib/db';
 import { apply, EditLog, writes, type AnnMap, type Edit } from '../lib/editlog';
 import { hitTest, boundingRect } from '../lib/geometry';
 import {
-  annotationTop, newId, type AnnId, type Annotation, type ColorId, type DocId, type StoredAnnotation, type TextMarkupKind,
+  annotationTop, newId, type AnnId, type Annotation, type ColorId, type DocId, type FileAnnotation, type StoredAnnotation, type TextMarkupKind,
 } from '../lib/types';
 import { IDLE, type Interaction } from './interaction';
 import { captureSelection, type SelectionPart } from './selection';
@@ -37,6 +37,19 @@ export class Annotator {
     const { put, del } = writes(e);
     void writeAnnotations(put, del);
     if (this.selected && !this.items.has(this.selected)) this.selected = null;
+    this.reader.sync?.touch();
+  }
+
+  /** Changes read from the PDF file; they are not the reader's own edits, so they skip the undo history. */
+  applyExternal(put: FileAnnotation[], del: AnnId[]) {
+    if (!put.length && !del.length) return;
+    const stored = put.map((a): StoredAnnotation => ({ ...a, docId: this.docId }));
+    const next = new Map(this.items);
+    for (const id of del) next.delete(id);
+    for (const a of stored) next.set(a.id, a);
+    this.items = next;
+    void writeAnnotations(stored, del);
+    if (this.selected && !next.has(this.selected)) this.selected = null;
   }
 
   byPage = $derived.by(() => {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { TextLayer, RenderingCancelledException, type PageViewport, type RenderTask } from 'pdfjs-dist';
-  import { displaySize } from './pdf';
+  import { ANNOTATION_MODE, displaySize } from './pdf';
   import type { Reader } from './session.svelte';
   import AnnotationLayer from './AnnotationLayer.svelte';
   import AnnotationPopover from './AnnotationPopover.svelte';
@@ -37,7 +37,7 @@
     canvas.width = Math.floor(viewport.width * out);
     canvas.height = Math.floor(viewport.height * out);
     task?.cancel();
-    const t = page.render({ canvas, viewport, transform: out === 1 ? undefined : [out, 0, 0, out, 0, 0] });
+    const t = page.render({ canvas, viewport, transform: out === 1 ? undefined : [out, 0, 0, out, 0, 0], annotationMode: ANNOTATION_MODE });
     task = t;
     try {
       await t.promise;

@@ -2,7 +2,7 @@
   import { RenderingCancelledException } from 'pdfjs-dist';
   import { tick } from 'svelte';
   import { entryText, looksLikeReference, paperLink, scholarUrl } from '../lib/citation';
-  import type { DestPoint } from './pdf';
+  import { ANNOTATION_MODE, type DestPoint } from './pdf';
   import type { Reader } from './session.svelte';
 
   let { reader, dest, name, clientX, clientY }: { reader: Reader; dest: DestPoint; name: string | null; clientX: number; clientY: number } = $props();
@@ -34,7 +34,7 @@
       const viewport = p.getViewport({ scale, offsetY: -top });
       canvas.width = Math.floor(WIDTH * dpr);
       canvas.height = Math.floor(HEIGHT * dpr);
-      const t = p.render({ canvas, viewport, transform: [dpr, 0, 0, dpr, 0, 0] });
+      const t = p.render({ canvas, viewport, transform: [dpr, 0, 0, dpr, 0, 0], annotationMode: ANNOTATION_MODE });
       task = t;
       try {
         await t.promise;

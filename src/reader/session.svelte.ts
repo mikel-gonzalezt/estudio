@@ -8,6 +8,10 @@ import { centredScrollLeft, fitTextScale, textBounds } from '../lib/textfit';
 import type { PointerCtx } from './tools';
 import { putDoc } from '../lib/db';
 import type { TextRun } from '../lib/citation';
+import type { PdfRequest } from '../lib/app.svelte';
+import type { FileSync } from './filesync.svelte';
+import { fileNotebook } from '../lib/notebookstore';
+import { stemOf } from '../lib/vaulttree';
 import { displaySize, textRuns, type DestPoint, type PageInfo, type PDFDocumentProxy, type PDFPageProxy, type Target } from './pdf';
 
 export const PAGE_GAP = 12;
@@ -18,15 +22,17 @@ const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.
 
 export type FitMode = 'width' | 'page' | 'text';
 
-export type LeftTab = 'outline' | 'thumbnails' | 'annotations';
+export type LeftTab = 'files' | 'outline' | 'thumbnails' | 'annotations';
 
 export interface LinkPreviewState { dest: DestPoint; name: string | null; clientX: number; clientY: number }
 
 export class Reader {
   readonly pdf: PDFDocumentProxy;
   readonly info: PageInfo[];
-  /** The original bytes; pdf.js detaches the buffer it was given, and exports need a pristine copy. */
-  readonly file: File;
+  /** Where the document came from; pdf.js detaches the buffer it was given, so exports read it again. */
+  readonly source: PdfRequest;
+  /** Present when annotations are saved into the PDF file itself. */
+  sync: FileSync | null = null;
   readonly ann: Annotator;
   readonly study: Study;
   readonly search: Search;
@@ -52,17 +58,26 @@ export class Reader {
   #saveTimer: ReturnType<typeof setTimeout> | undefined;
   readonly #seen: Set<number>;
 
-  constructor(pdf: PDFDocumentProxy, info: PageInfo[], doc: DocRecord, annotations: StoredAnnotation[], file: File) {
+  constructor(pdf: PDFDocumentProxy, info: PageInfo[], doc: DocRecord, annotations: StoredAnnotation[], source: PdfRequest) {
     this.pdf = pdf;
-    this.file = file;
+    this.source = source;
     this.ann = new Annotator(this, doc.id, annotations);
-    this.study = new Study(doc.id);
+    const place = source.place;
+    this.study = place
+      ? new Study(doc.id, fileNotebook(place.dir, `${stemOf(place.name)}.md`, doc.id), place.name)
+      : new Study(doc.id);
     this.search = new Search(this);
     this.info = info;
     this.doc = doc;
     this.scale = doc.lastZoom;
     this.currentPage = doc.lastPage;
     this.#seen = new Set(doc.pagesSeen);
+  }
+
+  /** Current file contents. A handle is re-read because the File taken at open goes stale once the file is saved. */
+  async bytes(): Promise<ArrayBuffer> {
+    const { handle, file } = this.source;
+    return (handle ? await handle.getFile() : file).arrayBuffer();
   }
 
   showLeft(tab: LeftTab) {
