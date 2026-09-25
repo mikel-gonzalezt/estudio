@@ -51,7 +51,7 @@
             ...(handle ? { handle } : {}),
           };
       await putDoc(doc);
-      const r = new Reader(pdf, info, doc, await annotationsFor(doc.id));
+      const r = new Reader(pdf, info, doc, await annotationsFor(doc.id), file);
       await r.study.load();
       reader = r;
       document.title = `${doc.title} · Estudio`;

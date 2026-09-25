@@ -19,6 +19,8 @@ export type LeftTab = 'outline' | 'thumbnails' | 'annotations';
 export class Reader {
   readonly pdf: PDFDocumentProxy;
   readonly info: PageInfo[];
+  /** The original bytes; pdf.js detaches the buffer it was given, and exports need a pristine copy. */
+  readonly file: File;
   readonly ann: Annotator;
   readonly study: Study;
   readonly search: Search;
@@ -40,8 +42,9 @@ export class Reader {
   #saveTimer: ReturnType<typeof setTimeout> | undefined;
   readonly #seen: Set<number>;
 
-  constructor(pdf: PDFDocumentProxy, info: PageInfo[], doc: DocRecord, annotations: StoredAnnotation[]) {
+  constructor(pdf: PDFDocumentProxy, info: PageInfo[], doc: DocRecord, annotations: StoredAnnotation[], file: File) {
     this.pdf = pdf;
+    this.file = file;
     this.ann = new Annotator(this, doc.id, annotations);
     this.study = new Study(doc.id);
     this.search = new Search(this);

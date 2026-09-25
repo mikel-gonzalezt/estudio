@@ -3,9 +3,25 @@
   import { deleteDoc } from '../lib/db';
   import type { DocRecord } from '../lib/types';
   import Icon from './Icon.svelte';
+  import { downloadBackup, restoreBackup } from '../lib/backupio';
 
   let input: HTMLInputElement;
   let locating = $state<DocRecord | null>(null);
+  let restoreInput: HTMLInputElement;
+  let notice = $state('');
+
+  async function onRestore() {
+    const f = restoreInput.files?.[0];
+    restoreInput.value = '';
+    if (!f) return;
+    try {
+      const r = await restoreBackup(f);
+      notice = `Restored ${r.docs} documents, ${r.annotations} annotations and ${r.cards} cards.`;
+      await app.refreshDocs();
+    } catch (e) {
+      notice = `Restore failed: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
 
   function onInput() {
     const f = input.files?.[0];
@@ -51,6 +67,12 @@
       <button class="btn" onclick={() => app.toggleTheme()} title="Toggle theme">
         <Icon name={app.settings.theme === 'dark' ? 'sun' : 'moon'} />
       </button>
+      <button class="btn" onclick={downloadBackup} title="Download a JSON backup of all documents, annotations, notebooks and cards">
+        <span class="row"><Icon name="download" size={16} /> Backup</span>
+      </button>
+      <button class="btn" onclick={() => restoreInput.click()} title="Restore from a JSON backup">
+        <span class="row"><Icon name="upload" size={16} /> Restore</span>
+      </button>
       <button class="btn primary" onclick={() => pickPdf(input)}>
         <span class="row"><Icon name="open" /> Open PDF</span>
       </button>
@@ -58,6 +80,9 @@
   </header>
 
   <input bind:this={input} type="file" accept="application/pdf,.pdf" hidden onchange={onInput} data-testid="file-input" />
+
+  <input bind:this={restoreInput} type="file" accept="application/json,.json" hidden onchange={onRestore} data-testid="restore-input" />
+  {#if notice}<p class="hint">{notice}</p>{/if}
 
   {#if app.error}<p class="error">{app.error}</p>{/if}
 

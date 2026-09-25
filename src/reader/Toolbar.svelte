@@ -4,10 +4,24 @@
   import { COLOR_HEX, COLOR_IDS, DEFAULT_MEANINGS, type PageMode } from '../lib/types';
   import type { Reader } from './session.svelte';
   import { TOOL_IDS, TOOLS } from './tools';
+  import { exportMarkdownFile, exportPdfFile } from './exports';
+  import { downloadBackup } from '../lib/backupio';
 
   let { reader }: { reader: Reader } = $props();
   const ann = $derived(reader.ann);
   let meaningsOpen = $state(false);
+  let exportOpen = $state(false);
+  let exporting = $state(false);
+
+  async function run(f: () => unknown) {
+    exportOpen = false;
+    exporting = true;
+    try {
+      await f();
+    } finally {
+      exporting = false;
+    }
+  }
 
   function saveMeanings() {
     for (const c of COLOR_IDS) if (!app.settings.meanings[c].trim()) app.settings.meanings[c] = DEFAULT_MEANINGS[c];
@@ -80,6 +94,16 @@
     <span class="sep"></span>
     <button title="Notebook (N)" class:on={reader.study.rightOpen && reader.study.rightTab === 'notebook'} onclick={() => reader.study.showRight('notebook')}><Icon name="notebook" /></button>
     <button title="Flashcards (C)" class:on={reader.study.rightOpen && reader.study.rightTab === 'cards'} onclick={() => reader.study.showRight('cards')}><Icon name="card" /></button>
+    <div class="menu-wrap">
+      <button title="Export" class:on={exportOpen} disabled={exporting} onclick={() => (exportOpen = !exportOpen)}><Icon name="download" /></button>
+      {#if exportOpen}
+        <div class="menu" data-testid="export-menu">
+          <button onclick={() => run(() => exportMarkdownFile(reader))}>Markdown (highlights, notes, notebook)</button>
+          <button onclick={() => run(() => exportPdfFile(reader))}>Annotated PDF</button>
+          <button onclick={() => run(downloadBackup)}>Full backup (JSON)</button>
+        </div>
+      {/if}
+    </div>
     <button title="Toggle theme" onclick={() => app.toggleTheme()}><Icon name={app.settings.theme === 'dark' ? 'sun' : 'moon'} /></button>
   </div>
 </header>
@@ -106,7 +130,21 @@
   .swatch { width: 22px; height: 22px; padding: 0; margin: 0 1px; border-radius: 50%; background: var(--c); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border); }
   .swatch:hover:not(:disabled) { background: var(--c); transform: scale(1.08); }
   .swatch.on { box-shadow: 0 0 0 2px var(--text); }
-  .meanings-wrap { position: relative; }
+  .meanings-wrap, .menu-wrap { position: relative; }
+  .menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 40;
+    display: grid;
+    min-width: 260px;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--pop-shadow);
+  }
+  .menu button { text-align: left; padding: 7px 10px; font-size: 13px; }
   .meanings {
     position: absolute;
     top: calc(100% + 8px);
