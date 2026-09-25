@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
   import '../styles/textlayer.css';
-  import { app, type OpenRequest } from '../lib/app.svelte';
-  import { annotationsFor, getDoc, putDoc } from '../lib/db';
+  import { app, type PdfRequest } from '../lib/app.svelte';
   import { buildKeymap, commandForEvent } from '../lib/registry';
-  import type { DocId, DocRecord } from '../lib/types';
+  import { vaults } from '../lib/vaults.svelte';
+  import VaultTree from '../components/VaultTree.svelte';
+  import { openDocument } from './open';
   import { readerCommands } from './commands';
   import Outline from './Outline.svelte';
   import AnnotationsPanel from './AnnotationsPanel.svelte';
@@ -18,13 +19,12 @@
   import Ruler from './Ruler.svelte';
   import LinkPreview from './LinkPreview.svelte';
   import CommandPalette from '../components/CommandPalette.svelte';
-  import { loadPdf, pageInfo } from './pdf';
-  import { Reader, type LeftTab } from './session.svelte';
+  import type { Reader, LeftTab } from './session.svelte';
   import StatusBar from './StatusBar.svelte';
   import Toolbar from './Toolbar.svelte';
   import Viewer from './Viewer.svelte';
 
-  let { request }: { request: OpenRequest } = $props();
+  let { request }: { request: PdfRequest } = $props();
 
   let reader = $state<Reader | null>(null);
   let error = $state('');
@@ -35,27 +35,10 @@
 
   onMount(async () => {
     try {
-      const { file, handle } = request;
-      const pdf = await loadPdf(await file.arrayBuffer());
-      const info = await Promise.all(Array.from({ length: pdf.numPages }, (_, i) => pdf.getPage(i + 1).then(pageInfo)));
-      const id = (pdf.fingerprints[0] ?? `${file.name}:${file.size}`) as DocId;
-      const meta = await pdf.getMetadata().catch(() => null);
-      const metaTitle = (meta?.info as { Title?: string } | undefined)?.Title?.trim();
-      const now = Date.now();
-      const existing = await getDoc(id);
-      const doc: DocRecord = existing
-        ? { ...existing, openedAt: now, ...(handle ? { handle } : {}) }
-        : {
-            id, title: metaTitle || file.name.replace(/\.pdf$/i, ''), fileName: file.name, pageCount: pdf.numPages,
-            lastPage: 1, lastZoom: 1, pagesSeen: [1], addedAt: now, openedAt: now, readingMs: 0,
-            ...(handle ? { handle } : {}),
-          };
-      await putDoc(doc);
-      const r = new Reader(pdf, info, doc, await annotationsFor(doc.id), file);
-      await r.study.load();
-      reader = r;
-      document.title = `${doc.title} · Estudio`;
-      if (!existing) {
+      const opened = await openDocument(request);
+      reader = opened.reader;
+      document.title = `${reader.doc.title} · Estudio`;
+      if (opened.isNew) {
         await tick();
         reader.fitWidth();
       }
@@ -67,10 +50,15 @@
   onDestroy(() => {
     document.title = 'Estudio';
     if (reader) {
-      void reader.save();
-      void reader.pdf.loadingTask.destroy();
+      const r = reader;
+      void app.track(Promise.all([r.save(), r.study.saveNotebook(), r.sync?.save()]).finally(() => r.pdf.loadingTask.destroy()));
     }
   });
+
+  function onVisibility() {
+    if (document.visibilityState !== 'hidden' || !reader) return;
+    void app.track(Promise.all([reader.save(), reader.sync?.save()]));
+  }
 
   const loadReview = () => import('./review/Review.svelte');
 
@@ -121,14 +109,16 @@
     }, 0);
   }
 
-  const TABS: { id: LeftTab; label: string }[] = [
+  const TABS = $derived<{ id: LeftTab; label: string }[]>([
+    ...(vaults.current ? [{ id: 'files' as const, label: 'Files' }] : []),
     { id: 'outline', label: 'Outline' },
     { id: 'thumbnails', label: 'Pages' },
     { id: 'annotations', label: 'Annotations' },
-  ];
+  ]);
 </script>
 
 <svelte:window onkeydown={onKeydown} onpointerup={onPointerUp} onpointermove={markActive} onwheel={markActive} onbeforeunload={() => reader?.save()} />
+<svelte:document onvisibilitychange={onVisibility} />
 
 {#if error}
   <div class="fatal">
@@ -154,7 +144,8 @@
           {/each}
         </nav>
         <div class="pane scroll-thin">
-          {#if reader.leftTab === 'outline'}<Outline {reader} />
+          {#if reader.leftTab === 'files' && vaults.current}<VaultTree compact current={request.place?.path} />
+          {:else if reader.leftTab === 'outline'}<Outline {reader} />
           {:else if reader.leftTab === 'thumbnails'}<Thumbnails {reader} />
           {:else if reader.leftTab === 'annotations'}<AnnotationsPanel {reader} />{/if}
         </div>

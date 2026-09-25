@@ -1,8 +1,8 @@
 <script lang="ts">
   import { renderMarkdown } from '../lib/notebook';
-  import type { Reader } from './session.svelte';
+  import type { NotebookHost } from './study.svelte';
 
-  let { reader }: { reader: Reader } = $props();
+  let { reader }: { reader: NotebookHost } = $props();
   const study = $derived(reader.study);
 
   type Mode = 'write' | 'both' | 'preview';

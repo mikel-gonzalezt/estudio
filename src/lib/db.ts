@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { AnnId, Card, CardId, DocId, DocRecord, Notebook, Settings, StoredAnnotation } from './types';
+import type { AnnId, Card, CardId, DocId, DocRecord, Notebook, Settings, StoredAnnotation, Vault, VaultId } from './types';
 import { DEFAULT_SETTINGS } from './types';
 import type { Backup } from './backup';
 
@@ -12,6 +12,7 @@ interface Schema extends DBSchema {
   cards: { key: CardId; value: Card; indexes: { docId: DocId; due: number } };
   settings: { key: string; value: unknown };
   handles: { key: DocId; value: FileSystemFileHandle };
+  vaults: { key: VaultId; value: Vault };
 }
 
 // Svelte state proxies are not structured-cloneable, so everything is copied to plain data on write.
@@ -22,16 +23,19 @@ function plain<T>(v: T): T {
 let dbp: Promise<IDBPDatabase<Schema>> | undefined;
 
 function db(): Promise<IDBPDatabase<Schema>> {
-  dbp ??= openDB<Schema>('estudio', 1, {
-    upgrade(d) {
-      d.createObjectStore('docs', { keyPath: 'id' });
-      d.createObjectStore('annotations', { keyPath: 'id' }).createIndex('docId', 'docId');
-      d.createObjectStore('notebooks', { keyPath: 'docId' });
-      const cards = d.createObjectStore('cards', { keyPath: 'id' });
-      cards.createIndex('docId', 'docId');
-      cards.createIndex('due', 'srs.due');
-      d.createObjectStore('settings');
-      d.createObjectStore('handles');
+  dbp ??= openDB<Schema>('estudio', 2, {
+    upgrade(d, oldVersion) {
+      if (oldVersion < 1) {
+        d.createObjectStore('docs', { keyPath: 'id' });
+        d.createObjectStore('annotations', { keyPath: 'id' }).createIndex('docId', 'docId');
+        d.createObjectStore('notebooks', { keyPath: 'docId' });
+        const cards = d.createObjectStore('cards', { keyPath: 'id' });
+        cards.createIndex('docId', 'docId');
+        cards.createIndex('due', 'srs.due');
+        d.createObjectStore('settings');
+        d.createObjectStore('handles');
+      }
+      if (oldVersion < 2) d.createObjectStore('vaults', { keyPath: 'id' });
     },
   });
   return dbp;
@@ -119,6 +123,19 @@ export async function putCard(card: Card): Promise<void> {
 
 export async function deleteCard(id: CardId): Promise<void> {
   await (await db()).delete('cards', id);
+}
+
+export async function listVaults(): Promise<Vault[]> {
+  return (await (await db()).getAll('vaults')).sort((a, b) => b.openedAt - a.openedAt);
+}
+
+/** Handles are structured-cloneable, so the record is stored as is rather than through `plain`. */
+export async function putVault(v: Vault): Promise<void> {
+  await (await db()).put('vaults', { ...v });
+}
+
+export async function deleteVault(id: VaultId): Promise<void> {
+  await (await db()).delete('vaults', id);
 }
 
 export async function getSettings(): Promise<Settings> {

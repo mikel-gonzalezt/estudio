@@ -1,10 +1,14 @@
-import { cardsFor, countDue, deleteCard, getNotebook, putCard, putNotebook } from '../lib/db';
+import { cardsFor, countDue, deleteCard, putCard } from '../lib/db';
 import { newSrs } from '../lib/fsrs';
 import { appendBlock, quoteBlock } from '../lib/notebook';
+import { idbNotebook, type NotebookStore } from '../lib/notebookstore';
 import { newId, type AnnId, type Card, type CardId, type DocId } from '../lib/types';
 
 export type RightTab = 'notebook' | 'cards';
 export type ReviewScope = 'doc' | 'all';
+
+/** What the notebook editor needs: a notebook, and somewhere for page links to go. */
+export interface NotebookHost { study: Study; jump(t: { page: number; y: number }): void }
 
 export interface CardDraft { page: number; text: string; annId?: AnnId; cloze: boolean }
 
@@ -18,14 +22,19 @@ export class Study {
   draft = $state.raw<CardDraft | null>(null);
   review = $state<ReviewScope | null>(null);
   #saveTimer: ReturnType<typeof setTimeout> | undefined;
+  readonly #store: NotebookStore;
+  /** The PDF's file name when the notebook lives in a vault, so page links name the file Obsidian-style. */
+  readonly pdfName: string | undefined;
 
-  constructor(docId: DocId) {
+  constructor(docId: DocId, store: NotebookStore = idbNotebook(docId), pdfName?: string) {
     this.docId = docId;
+    this.#store = store;
+    this.pdfName = pdfName;
   }
 
   async load() {
-    const [nb, cards] = await Promise.all([getNotebook(this.docId), cardsFor(this.docId)]);
-    this.markdown = nb?.markdown ?? '';
+    const [markdown, cards] = await Promise.all([this.#store.load(), cardsFor(this.docId)]);
+    this.markdown = markdown;
     this.cards = cards;
     await this.refreshDue();
   }
@@ -53,12 +62,12 @@ export class Study {
 
   async saveNotebook() {
     clearTimeout(this.#saveTimer);
-    await putNotebook({ docId: this.docId, markdown: this.markdown, updatedAt: Date.now() });
+    await this.#store.save(this.markdown);
   }
 
   /** Appends a quote with a back-link, followed by the reader's own comment when there is one. */
   quote(text: string, page: number, comment = '') {
-    const block = quoteBlock(text, page) + (comment ? `\n${comment}\n` : '');
+    const block = quoteBlock(text, page, this.pdfName) + (comment ? `\n${comment}\n` : '');
     this.setMarkdown(appendBlock(this.markdown, block));
     this.showRight('notebook');
   }

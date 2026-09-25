@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isCloze, nextClozeNumber, plainCloze, renderCloze, wrapCloze } from './cloze';
-import { appendBlock, pageLinks, quoteBlock, renderMarkdown } from './notebook';
+import { appendBlock, formatPageLink, pageLinks, quoteBlock, renderMarkdown } from './notebook';
 
 describe('notebook', () => {
   it('quotes multi-line text with a trailing page back-link', () => {
@@ -20,6 +20,16 @@ describe('notebook', () => {
     const html = renderMarkdown('As shown in [[p4]].');
     expect(html).toContain('data-page="4"');
     expect(html).toContain('class="plink"');
+  });
+
+  it('writes and reads Obsidian-style links that name the PDF in vault notebooks', () => {
+    expect(formatPageLink(3, undefined, 'my paper.pdf')).toBe('[[my paper.pdf#page=3|p. 3]]');
+    expect(formatPageLink(3)).toBe('[[p3]]');
+    expect(quoteBlock('x', 5, 'a.pdf')).toBe('> x [[a.pdf#page=5|p. 5]]\n');
+    expect(pageLinks('[[a.pdf#page=5|p. 5]] [[b.pdf#page=6]] [[p7]]')).toEqual([5, 6, 7]);
+    const html = renderMarkdown('see [[a.pdf#page=5|Fig <2>]]');
+    expect(html).toContain('data-page="5"');
+    expect(html).toContain('Fig&nbsp;&lt;2&gt;');
   });
 
   it('escapes raw HTML and neutralises javascript links', () => {
