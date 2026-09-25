@@ -1,0 +1,101 @@
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #f0eee8;
+  --surface-3: #e7e4dc;
+  --border: #e0ddd4;
+  --text: #25302b;
+  --muted: #6d756f;
+  --accent: #2f6f5e;
+  --accent-text: #ffffff;
+  --accent-soft: #e2efe9;
+  --danger: #b4443a;
+  --viewer-bg: #e8e6e0;
+  --page-shadow: 0 1px 3px rgb(30 35 32 / 0.12), 0 4px 16px rgb(30 35 32 / 0.06);
+  --pop-shadow: 0 6px 24px rgb(20 25 22 / 0.16), 0 1px 3px rgb(20 25 22 / 0.1);
+  --radius: 8px;
+  --font: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Cascadia Code', Consolas, ui-monospace, monospace;
+  --hl-blend: multiply;
+  --hl-opacity: 0.42;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #1a1d1c;
+  --surface: #222725;
+  --surface-2: #2a302d;
+  --surface-3: #333a37;
+  --border: #353d39;
+  --text: #e4e8e5;
+  --muted: #98a19c;
+  --accent: #74c2a8;
+  --accent-text: #10201a;
+  --accent-soft: #29403a;
+  --danger: #e57b70;
+  --viewer-bg: #141716;
+  --page-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  --pop-shadow: 0 8px 28px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 var(--font);
+  overflow: hidden;
+}
+
+#app { height: 100%; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+button {
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+button:hover:not(:disabled) { background: var(--surface-2); }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 5px 12px;
+}
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.btn.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+
+input[type='text'], input[type='search'], input[type='number'], textarea, select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+kbd {
+  font: 11px var(--mono);
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.muted { color: var(--muted); }
+
+.scroll-thin { scrollbar-width: thin; scrollbar-color: var(--surface-3) transparent; }
+
+.icon { width: 18px; height: 18px; display: block; }

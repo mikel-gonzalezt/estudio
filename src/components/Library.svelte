@@ -1,0 +1,150 @@
+<script lang="ts">
+  import { app, pickPdf } from '../lib/app.svelte';
+  import { deleteDoc } from '../lib/db';
+  import type { DocRecord } from '../lib/types';
+  import Icon from './Icon.svelte';
+
+  let input: HTMLInputElement;
+  let locating = $state<DocRecord | null>(null);
+
+  function onInput() {
+    const f = input.files?.[0];
+    if (f) app.openFile(f);
+    input.value = '';
+  }
+
+  async function openDoc(doc: DocRecord) {
+    if (await app.reopen(doc)) return;
+    locating = doc;
+    await pickPdf(input);
+  }
+
+  async function remove(doc: DocRecord) {
+    if (!confirm(`Remove "${doc.title}" and all its annotations, notes and cards from this device?`)) return;
+    await deleteDoc(doc.id);
+    await app.refreshDocs();
+  }
+
+  const progress = (d: DocRecord) => Math.round((d.pagesSeen.length / Math.max(1, d.pageCount)) * 100);
+
+  function ago(t: number): string {
+    const s = (Date.now() - t) / 1000;
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.round(s / 60)} min ago`;
+    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    return new Date(t).toLocaleDateString();
+  }
+
+  const fmtTime = (ms: number) => {
+    const m = Math.round(ms / 60000);
+    return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+  };
+</script>
+
+<main class="library">
+  <header>
+    <div class="brand">
+      <img src="/icon.svg" alt="" width="28" height="28" />
+      <h1>Estudio</h1>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick={() => app.toggleTheme()} title="Toggle theme">
+        <Icon name={app.settings.theme === 'dark' ? 'sun' : 'moon'} />
+      </button>
+      <button class="btn primary" onclick={() => pickPdf(input)}>
+        <span class="row"><Icon name="open" /> Open PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <input bind:this={input} type="file" accept="application/pdf,.pdf" hidden onchange={onInput} data-testid="file-input" />
+
+  {#if app.error}<p class="error">{app.error}</p>{/if}
+
+  {#if locating}
+    <p class="hint">"{locating.title}" can't be reopened directly. Pick the file again to continue where you left off.</p>
+  {/if}
+
+  {#if app.ready && app.docs.length === 0}
+    <section class="empty">
+      <div class="drop">
+        <Icon name="open" size={36} />
+        <h2>Open a PDF to start studying</h2>
+        <p class="muted">Drag a file anywhere onto this window, or use <strong>Open PDF</strong>. Highlights, notes and flashcards stay on this device.</p>
+      </div>
+    </section>
+  {:else}
+    <h2 class="section">Recent</h2>
+    <ul class="grid">
+      {#each app.docs as doc (doc.id)}
+        <li class="doc">
+          <button class="open" onclick={() => openDoc(doc)}>
+            <span class="title">{doc.title}</span>
+            <span class="file muted">{doc.fileName}</span>
+            <span class="bar" title="{progress(doc)}% of pages seen"><span style:width="{progress(doc)}%"></span></span>
+            <span class="meta muted">
+              <span>{progress(doc)}% · p. {doc.lastPage}/{doc.pageCount}</span>
+              <span>{fmtTime(doc.readingMs)} · {ago(doc.openedAt)}</span>
+            </span>
+          </button>
+          <button class="remove" title="Remove from library" onclick={() => remove(doc)}><Icon name="trash" size={16} /></button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+</main>
+
+<style>
+  .library {
+    height: 100%;
+    overflow: auto;
+    padding: 28px max(24px, calc((100% - 1040px) / 2));
+  }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .actions { display: flex; gap: 8px; }
+  .row { display: inline-flex; align-items: center; gap: 6px; }
+  .section { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px; }
+  .error { color: var(--danger); }
+  .hint { background: var(--accent-soft); padding: 8px 12px; border-radius: var(--radius); }
+  .empty { display: grid; place-items: center; min-height: 50vh; }
+  .drop {
+    text-align: center;
+    max-width: 440px;
+    padding: 40px;
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    color: var(--muted);
+  }
+  .drop h2 { color: var(--text); font-size: 18px; margin: 8px 0 0; }
+  .grid {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .doc { position: relative; }
+  .open {
+    width: 100%;
+    text-align: left;
+    display: grid;
+    gap: 6px;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .open:hover:not(:disabled) { background: var(--surface); border-color: var(--accent); }
+  .title { font-weight: 600; font-size: 15px; padding-right: 24px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+  .file { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { height: 5px; background: var(--surface-3); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .bar span { display: block; height: 100%; background: var(--accent); }
+  .meta { display: flex; justify-content: space-between; font-size: 12px; }
+  .remove { position: absolute; top: 10px; right: 8px; color: var(--muted); }
+</style>
