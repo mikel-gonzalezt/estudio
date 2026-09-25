@@ -2,6 +2,18 @@
   import PageView from './PageView.svelte';
   import type { Reader } from './session.svelte';
   import { TwoFingerTap } from '../lib/gestures';
+  import { QUOTE_MIME } from '../lib/notebook';
+
+  /** Dragging selected page text carries its page, so the notebook can quote it with a link back. */
+  function onDragStart(e: DragEvent) {
+    const sel = window.getSelection();
+    const text = sel?.toString().trim();
+    const node = sel?.anchorNode;
+    const el = node instanceof Element ? node : node?.parentElement;
+    const page = Number(el?.closest<HTMLElement>('.page')?.dataset.page);
+    if (!text || !page || !e.dataTransfer) return;
+    e.dataTransfer.setData(QUOTE_MIME, JSON.stringify({ text, page }));
+  }
 
   let { reader }: { reader: Reader } = $props();
 
@@ -33,6 +45,7 @@
       void reader.zoomBy(reader.scale * Math.exp(-e.deltaY * 0.0015), { x: e.clientX - r.left, y: e.clientY - r.top });
     };
     scroller.addEventListener('wheel', onWheel, { passive: false });
+    scroller.addEventListener('dragstart', onDragStart);
     const tap = new TwoFingerTap();
     const touch = (f: (e: PointerEvent) => void) => (e: PointerEvent) => {
       if (e.pointerType === 'touch') f(e);
@@ -47,7 +60,7 @@
     for (const [type, f] of gestures) scroller.addEventListener(type, f, { capture: true });
     let lastWidth = scroller.clientWidth;
     const ro = new ResizeObserver(() => {
-      if (scroller.clientWidth === lastWidth) return;
+      if (reader.layoutHeld || scroller.clientWidth === lastWidth) return;
       lastWidth = scroller.clientWidth;
       reader.refit();
     });
@@ -57,6 +70,7 @@
       io.disconnect();
       ro.disconnect();
       scroller.removeEventListener('wheel', onWheel);
+      scroller.removeEventListener('dragstart', onDragStart);
       for (const [type, f] of gestures) scroller.removeEventListener(type, f, { capture: true });
     };
   });

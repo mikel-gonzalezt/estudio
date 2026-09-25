@@ -1,11 +1,17 @@
 import { mount } from 'svelte';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App.svelte';
+import { POPOUT_ROUTE } from './lib/notebooksync';
 import { pwa } from './lib/pwa.svelte';
 import './styles/global.css';
 
-pwa.listen();
-mount(App, { target: document.getElementById('app')! });
+const target = document.getElementById('app')!;
+if (POPOUT_ROUTE.test(location.hash)) {
+  void import('./reader/notebook/NotebookWindow.svelte').then((m) => mount(m.default, { target }));
+} else {
+  pwa.listen();
+  mount(App, { target });
+}
 if (import.meta.env.PROD) {
   const updateSW = registerSW({
     immediate: true,

@@ -64,12 +64,16 @@ To install as an app, open the preview or a deployed build in Chrome or Edge and
 | `Ctrl+Z` / `Ctrl+Y` | Undo / redo annotation edits |
 | `/` or `Ctrl+F` | Find in document |
 | `b`, `N`, `C`, `B` | Sidebar, notebook, flashcards, study pane |
+| `W` | Widen notebook / restore its width |
+| `Ctrl+L` (in the notebook) | Link the page on screen |
+| `[[` (in the notebook) | Link the current page, a section or an annotation |
+| Arrow keys on a pane handle | Resize the pane (Shift for bigger steps, double-click to reset) |
 | `R` | Review due cards |
 | `f`, `r` | Focus mode, reading ruler |
 
 ## Dependencies
 
-Runtime: `pdfjs-dist`, `idb`, `pdf-lib` (in a worker when saving annotations into a file, and on demand for exports) and `marked` (notebook preview). The FSRS-5 scheduler is implemented in `src/lib/fsrs.ts` rather than pulled from `ts-fsrs`.
+Runtime: `pdfjs-dist`, `idb`, `pdf-lib` (in a worker when saving annotations into a file, and on demand for exports), `marked` (notebook preview) and CodeMirror 6 (notebook editor, loaded when the notebook first opens). The FSRS-5 scheduler is implemented in `src/lib/fsrs.ts` rather than pulled from `ts-fsrs`.
 
 ## Layout
 

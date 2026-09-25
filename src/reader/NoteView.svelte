@@ -6,21 +6,26 @@
   import { vaults } from '../lib/vaults.svelte';
   import Icon from '../components/Icon.svelte';
   import VaultTree from '../components/VaultTree.svelte';
-  import Notebook from './Notebook.svelte';
-  import { Study } from './study.svelte';
+  import Notebook from './notebook/Notebook.svelte';
+  import { NotebookChannel, NotebookDoc } from './notebook/doc.svelte';
+  import type { NotebookHost } from './notebook/host.svelte';
 
   let { request }: { request: NoteRequest } = $props();
 
   const place = untrack(() => request.place);
-  const study = new Study(`note:${place.path}` as DocId, fileNotebook(place.dir, place.name));
-  const host = { study, jump: () => {} };
+  const docId = `note:${place.path}` as DocId;
+  const doc = new NotebookDoc(docId, new NotebookChannel(docId), fileNotebook(place.dir, place.name));
+  const host: NotebookHost = {
+    context: { title: place.name, page: 1, sections: [], annotations: [] },
+    jump: () => {},
+  };
   let loaded = $state(false);
   let error = $state('');
 
   onMount(async () => {
     document.title = `${request.place.name.replace(/\.md$/i, '')} · Estudio`;
     try {
-      await study.load();
+      await doc.load();
       loaded = true;
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
@@ -29,7 +34,7 @@
 
   onDestroy(() => {
     document.title = 'Estudio';
-    if (loaded) void app.track(study.saveNotebook());
+    if (loaded) void app.track(doc.flush().finally(() => doc.channel.close()));
   });
 </script>
 
@@ -42,7 +47,7 @@
   {#if vaults.current}<aside><VaultTree compact current={request.place.path} /></aside>{/if}
   <main data-testid="note-view">
     {#if error}<p class="error">Could not open {request.place.name}: {error}</p>
-    {:else if loaded}<Notebook reader={host} />{/if}
+    {:else if loaded}<Notebook {doc} {host} autoLinks={false} onAutoLinks={() => {}} />{/if}
   </main>
 </div>
 

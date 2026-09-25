@@ -1,4 +1,5 @@
 import { plainCloze } from '../cloze';
+import { parsePageLinks } from '../pagelink';
 import {
   annotationTop, KIND_LABEL, type Card, type ColorId, type DocRecord, type StoredAnnotation,
 } from '../types';
@@ -15,7 +16,15 @@ export interface MarkdownInput {
 const tag = (s: string) => `#${s.trim().replace(/[^\p{L}\p{N}_]+/gu, '-').replace(/^-+|-+$/g, '')}`;
 const quote = (s: string) => s.trim().split(/\r?\n/).map((l) => `> ${l}`).join('\n');
 /** Notebook page links become plain references; `[[p3]]` would create stray notes in Obsidian. */
-const unlink = (md: string) => md.replace(/\[\[p(\d+)\]\]/g, '(p. $1)');
+const unlink = (md: string) => {
+  let out = '';
+  let at = 0;
+  for (const l of parsePageLinks(md)) {
+    out += md.slice(at, l.from) + (l.label ? `${l.label} (p. ${l.page})` : `(p. ${l.page})`);
+    at = l.to;
+  }
+  return out + md.slice(at);
+};
 const yamlString = (s: string) => JSON.stringify(s);
 
 function annotationBlock(a: StoredAnnotation, meanings: Record<ColorId, string>): string {

@@ -5,6 +5,8 @@
     type AnnotationKind, type ColorId,
   } from '../lib/types';
   import type { Reader } from './session.svelte';
+  import { setQuoteDrag } from '../lib/notebook';
+  import { annotationQuote } from './notebook/host.svelte';
 
   let { reader }: { reader: Reader } = $props();
   const ann = $derived(reader.ann);
@@ -58,7 +60,9 @@
     {#each filtered as a (a.id)}
       {@const c = annotationColor(a)}
       <li>
-        <button class="item" class:active={ann.selected === a.id} style:--c={c ? COLOR_HEX[c] : 'var(--muted)'} onclick={() => ann.reveal(a)}>
+        <button class="item" class:active={ann.selected === a.id} style:--c={c ? COLOR_HEX[c] : 'var(--muted)'} onclick={() => ann.reveal(a)}
+          draggable="true" ondragstart={(e) => e.dataTransfer && setQuoteDrag(e.dataTransfer, { text: annotationQuote(a), page: a.page })}
+          title="Click to open, drag into the notebook to quote">
           <span class="meta"><span class="kind">{KIND_LABEL[a.kind]}</span><span class="muted">p. {a.page}</span></span>
           {#if annotationText(a)}<span class="text quote">{annotationText(a)}</span>{/if}
           {#if annotationNote(a)}<span class="note">{annotationNote(a)}</span>{/if}

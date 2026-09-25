@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isCloze, nextClozeNumber, plainCloze, renderCloze, wrapCloze } from './cloze';
-import { appendBlock, formatPageLink, pageLinks, quoteBlock, renderMarkdown } from './notebook';
+import { appendBlock, pageLinks, quoteBlock, renderMarkdown } from './notebook';
+import { formatPageLink } from './pagelink';
 
 describe('notebook', () => {
   it('quotes multi-line text with a trailing page back-link', () => {

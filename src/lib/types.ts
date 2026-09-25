@@ -79,6 +79,13 @@ export interface Settings {
   pageMode: PageMode;
   pomodoroWorkMin: number;
   pomodoroBreakMin: number;
+  /** Pane widths in CSS px. */
+  leftPaneW: number;
+  rightPaneW: number;
+  /** The notebook pane takes most of the window and the page view shrinks. */
+  wideNotebook: boolean;
+  /** A new notebook paragraph starts with a link to the page being read when that page changed. */
+  autoPageLinks: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -87,6 +94,10 @@ export const DEFAULT_SETTINGS: Settings = {
   pageMode: 'normal',
   pomodoroWorkMin: 25,
   pomodoroBreakMin: 5,
+  leftPaneW: 260,
+  rightPaneW: 340,
+  wideNotebook: false,
+  autoPageLinks: true,
 };
 
 export function newId<T extends AnnId | CardId>(): T {
