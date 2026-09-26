@@ -1,4 +1,4 @@
-import { AnnotationMode, GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist';
+import { AnnotationMode, GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy, type RenderTask } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { rectPageToDisplay, type Rotation } from '../lib/geometry';
 import type { Rect } from '../lib/types';
@@ -88,22 +88,28 @@ export async function outline(pdf: PDFDocumentProxy): Promise<OutlineNode[]> {
 export type { PDFDocumentProxy, PDFPageProxy };
 
 /**
- * The region `rect` (page space, normalised) of a page as a PNG, drawn at `scale` device pixels
- * per point: 2 gives a figure sharp enough for notes and print.
+ * Draws the region `rect` (page space, normalised) of a page into a fresh `canvas`, sized to the
+ * region at `scale` device pixels per point.
  */
-export async function renderRegion(page: PDFPageProxy, info: PageInfo, rect: Rect, scale = 2): Promise<Blob> {
+export function drawRegion(page: PDFPageProxy, info: PageInfo, rect: Rect, canvas: HTMLCanvasElement, scale: number): RenderTask {
   const viewport = page.getViewport({ scale });
   const r = rectPageToDisplay(rect, info.rotation);
   const x = Math.floor(r.x * viewport.width);
   const y = Math.floor(r.y * viewport.height);
-  const w = Math.max(1, Math.ceil(r.w * viewport.width));
-  const h = Math.max(1, Math.ceil(r.h * viewport.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = Math.max(1, Math.ceil(r.w * viewport.width));
+  canvas.height = Math.max(1, Math.ceil(r.h * viewport.height));
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, w, h);
-  await page.render({ canvas, viewport, transform: [1, 0, 0, 1, -x, -y], annotationMode: ANNOTATION_MODE }).promise;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  return page.render({ canvas, viewport, transform: [1, 0, 0, 1, -x, -y], annotationMode: ANNOTATION_MODE });
+}
+
+/**
+ * The region `rect` (page space, normalised) of a page as a PNG, drawn at `scale` device pixels
+ * per point: 2 gives a figure sharp enough for notes and print.
+ */
+export async function renderRegion(page: PDFPageProxy, info: PageInfo, rect: Rect, scale = 2): Promise<Blob> {
+  const canvas = document.createElement('canvas');
+  await drawRegion(page, info, rect, canvas, scale).promise;
   return new Promise((ok, fail) => canvas.toBlob((b) => (b ? ok(b) : fail(new Error('The clip could not be drawn.'))), 'image/png'));
 }
