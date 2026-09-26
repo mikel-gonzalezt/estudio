@@ -7,6 +7,7 @@
   import { annotationAnchor, annotationText, COLOR_HEX, COLOR_IDS, KIND_LABEL, type ColorId, type StoredAnnotation } from '../lib/types';
   import { displaySize, renderRegion } from './pdf';
   import type { Reader } from './session.svelte';
+  import PinButton from './pins/PinButton.svelte';
 
   let { reader, a }: { reader: Reader; a: StoredAnnotation } = $props();
 
@@ -106,6 +107,7 @@
   <footer>
     {#if a.kind === 'area'}
       <button class="act" onclick={() => void toNotes()} disabled={sending} title="Add this clip to the notebook as an image" data-testid="send-to-notes"><Icon name="notebook" size={16} /> Send to notes</button>
+      <PinButton {reader} {a} />
     {:else}
       <button class="act" onclick={quote} title="Quote to notebook"><Icon name="quote" size={16} /> Quote</button>
     {/if}

@@ -5,6 +5,7 @@ import type { Reader } from './session.svelte';
 import { TOOL_IDS, TOOLS } from './tools';
 import { exportMarkdownFile, exportPdfFile, printNotesFile } from './exports';
 import { downloadBackup } from '../lib/backupio';
+import { pinCommands } from './pins/commands';
 
 const focusGoto = () => {
   const el = document.getElementById('goto-page') as HTMLInputElement | null;
@@ -94,6 +95,7 @@ export function readerCommands(r: Reader, ui: ReaderUi): Command[] {
     { id: 'export.pdf', title: 'Export annotated PDF', group: 'Export', run: () => void exportPdfFile(r) },
     { id: 'export.notesPdf', title: 'Print notes / save notes as PDF', group: 'Export', run: () => void printNotesFile(r) },
     { id: 'export.backup', title: 'Download full JSON backup', group: 'Export', run: () => void downloadBackup() },
+    ...pinCommands(r),
     { id: 'app.library', title: 'Close document (back to library)', group: 'App', run: () => app.close() },
   ];
 }
