@@ -11,7 +11,7 @@ import {
   autoLinkInsert, blockInsertion, chipText, formatPageLink, isFirstKeystroke, parsePageLinks, startsParagraph, type LinkTarget,
 } from '../../lib/pagelink';
 import { imageMarkdown } from '../../lib/attachments';
-import { formatTableCommand, formulaCommand, noteWidgets } from './cmwidgets';
+import { cursorInTable, formatTableCommand, formulaCommand, noteWidgets } from './cmwidgets';
 import { GROUP_NAMES, imageFiles, LINK_QUERY, linkOptions, type EditorHooks, type LinkGroup, type NotebookEditor } from './links';
 import { continueMarkup, markdownEditing } from './mdediting';
 
@@ -82,8 +82,13 @@ function linkAt(doc: Text, pos: number) {
   return parsePageLinks(line.text, line.from).find((l) => pos >= l.from && pos <= l.to) ?? null;
 }
 
-export function createEditor(parent: HTMLElement, text: string, hooks: EditorHooks): NotebookEditor & { formatTable(): boolean } {
+export function createEditor(
+  parent: HTMLElement,
+  text: string,
+  hooks: EditorHooks & { onTableCursor: (inside: boolean) => void },
+): NotebookEditor & { formatTable(): boolean } {
   const { host, pdfName } = hooks;
+  let inTable = false;
 
   const insertCurrentLink: Command = (view) => {
     const { page } = host.context;
@@ -218,6 +223,8 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
         EditorView.contentAttributes.of({ 'aria-label': 'Notebook', spellcheck: 'true' }),
         EditorView.updateListener.of((u) => {
           if (u.docChanged && !u.transactions.some((t) => t.annotation(Transaction.remote))) hooks.onChange(u.state.doc.toString());
+          const inside = cursorInTable(u.state);
+          if (inside !== inTable) hooks.onTableCursor((inTable = inside));
         }),
       ],
     }),

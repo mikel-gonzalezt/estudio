@@ -1,4 +1,5 @@
 import { EditorSelection, StateField, type EditorState, type Extension, type Range } from '@codemirror/state';
+import { syntaxTree } from '@codemirror/language';
 import { Decoration, EditorView, WidgetType, type Command, type DecorationSet } from '@codemirror/view';
 import { imageRefs, imageUrl, type NoteFiles } from '../../lib/attachments';
 import { renderMath } from '../../lib/katex';
@@ -95,6 +96,18 @@ export const formatTableCommand: Command = (view) => {
   if (insert !== state.sliceDoc(from, to)) view.dispatch({ changes: { from, to, insert }, userEvent: 'input.format' });
   return true;
 };
+
+/** Whether the cursor is in a GFM table, where Format table applies. */
+export function cursorInTable(state: EditorState): boolean {
+  const head = state.selection.main.head;
+  const tree = syntaxTree(state);
+  return ([-1, 1] as const).some((side) => {
+    for (let n: ReturnType<typeof tree.resolveInner> | null = tree.resolveInner(head, side); n; n = n.parent) {
+      if (n.name === 'Table') return true;
+    }
+    return false;
+  });
+}
 
 const mathAtCursor = (state: EditorState): MathSpan | null => {
   const head = state.selection.main.head;

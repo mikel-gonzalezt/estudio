@@ -4,7 +4,9 @@
   import type { NotebookDoc } from './doc.svelte';
   import type { NotebookHost } from './host.svelte';
 
-  let { doc, host, autoLinks, autofocus = false }: { doc: NotebookDoc; host: NotebookHost; autoLinks: boolean; autofocus?: boolean } = $props();
+  let {
+    doc, host, autoLinks, autofocus = false, inTable = $bindable(false),
+  }: { doc: NotebookDoc; host: NotebookHost; autoLinks: boolean; autofocus?: boolean; inTable?: boolean } = $props();
 
   let el: HTMLDivElement;
   let editor = $state.raw<ReturnType<typeof createEditor> | null>(null);
@@ -27,12 +29,14 @@
         files: () => doc.files,
         onChange: (t) => doc.edit(t),
         onBlur: () => void doc.flush(),
+        onTableCursor: (inside) => (inTable = inside),
       });
       editor = ed;
       if (autofocus) ed.focus();
     }, (e: unknown) => (failed = String(e)));
     return () => {
       dead = true;
+      inTable = false;
       ed?.destroy();
     };
   });

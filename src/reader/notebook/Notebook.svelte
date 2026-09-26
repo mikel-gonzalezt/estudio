@@ -39,6 +39,7 @@
     markdown: [['write', 'Write'], ['both', 'Split'], ['preview', 'Preview']],
     document: [['write', 'Edit'], ['preview', 'Read']],
   };
+  let inTable = $state(false);
   const html = $derived(renderMarkdown(splitFrontmatter(doc.markdown).body));
 
   function hydrate(node: HTMLElement, html: string) {
@@ -68,7 +69,7 @@
         <button role="radio" aria-checked={editorMode === m} class:on={editorMode === m} {title} onclick={() => onEditorMode(m as EditorMode)} data-testid="editor-mode-{m}">{label}</button>
       {/each}
     </div>
-    {#if editorMode === 'markdown' && mode !== 'preview'}<button
+    {#if editorMode === 'markdown' && mode !== 'preview' && inTable}<button
       class="toggle"
       title="Line up the pipes of the table at the cursor (Alt+Shift+F)"
       onclick={() => markdownEditor?.formatTable()}
@@ -94,7 +95,7 @@
         <p class="muted">Could not load the editor: {String(e)}</p>
       {/await}
     {:else}
-      <Editor bind:this={markdownEditor} {doc} {host} {autoLinks} {autofocus} />
+      <Editor bind:this={markdownEditor} bind:inTable {doc} {host} {autoLinks} {autofocus} />
     {/if}
   {/if}
   {#if mode !== 'write'}
