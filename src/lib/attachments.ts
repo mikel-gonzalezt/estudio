@@ -168,9 +168,10 @@ export const refFrom = (notePath: VaultPath, path: VaultPath) => {
 /**
  * A note in a vault: images go into `attachments/` beside it, and a reference resolves against the
  * note's folder, then the vault root, then any file in the vault with that name. `where` is read
- * on each use, as a note can move.
+ * on each use, as a note can move. A granted PDF folder (`shallow`) skips the by-name search, since
+ * it can be as large as Downloads.
  */
-export function vaultFiles(where: () => { root: Dir; notePath: VaultPath } | null): NoteFiles {
+export function vaultFiles(where: () => { root: Dir; notePath: VaultPath; shallow?: boolean } | null): NoteFiles {
   return withResolve(
     async (blob) => {
       const w = where();
@@ -186,6 +187,7 @@ export function vaultFiles(where: () => { root: Dir; notePath: VaultPath } | nul
         const b = await fileBlob(w.root, p);
         if (b) return b;
       }
+      if (w.shallow) return null;
       const name = nameOf(decode(src));
       const hit = (await walk(w.root)).find((e) => e.kind === 'file' && nameOf(e.path) === name);
       return hit ? fileBlob(w.root, hit.path) : null;

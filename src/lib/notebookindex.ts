@@ -56,6 +56,11 @@ export class NotebookIndex implements NotebookTracker {
     for (const [id, loc] of Object.entries(entries) as [DocId, NotebookLoc][]) this.#remembered.set(id, loc);
   }
 
+  /** A granted PDF folder: never walked whole. */
+  isShallow(vault: VaultId): boolean {
+    return this.#shallow.has(vault);
+  }
+
   root(vault: VaultId): FileSystemDirectoryHandle | undefined {
     return this.#roots.get(vault);
   }

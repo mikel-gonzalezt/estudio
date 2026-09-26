@@ -21,7 +21,7 @@ export interface CardDraft { page: number; text: string; annId?: AnnId; cloze: b
 /** Saves nothing: the notebook's vault cannot be read until access is granted again. */
 const UNREACHABLE: NotebookStore = { load: async () => '', save: async () => {} };
 
-const filesFor = (home: NotebookHome) => notebookFiles(home, (id) => notebookIndex.root(id), notebookIndex);
+const filesFor = (home: NotebookHome) => notebookFiles(home, (id) => notebookIndex.root(id), notebookIndex, (id) => notebookIndex.isShallow(id));
 
 function storeFor(home: NotebookHome): NotebookStore | null {
   if (home.kind === 'db') return idbNotebook(home.docId);

@@ -109,12 +109,17 @@ export function vaultNotebook(
 }
 
 /** Where the images of the notebook at `home` go, following the file when Estudio moves it. */
-export function notebookFiles(home: NotebookHome, root: (vault: VaultId) => FileSystemDirectoryHandle | undefined, tracker?: NotebookTracker): NoteFiles {
+export function notebookFiles(
+  home: NotebookHome,
+  root: (vault: VaultId) => FileSystemDirectoryHandle | undefined,
+  tracker?: NotebookTracker,
+  shallow: (vault: VaultId) => boolean = () => false,
+): NoteFiles {
   if (home.kind === 'db') return dbFiles();
   return vaultFiles(() => {
     const loc = tracker?.where(home.docId) ?? { vault: home.vault, path: home.path };
     const r = root(loc.vault);
-    return r ? { root: r, notePath: loc.path } : null;
+    return r ? { root: r, notePath: loc.path, shallow: shallow(loc.vault) } : null;
   });
 }
 
@@ -131,5 +136,5 @@ export async function resolveHome(home: NotebookHome): Promise<Resolved> {
   if (!vault) return { kind: 'missing', reason: 'The vault that holds this notebook is no longer in Estudio.' };
   if (!(await hasPermission(vault.handle, 'readwrite'))) return { kind: 'locked', vault };
   const root = (id: VaultId) => (id === vault.id ? vault.handle : undefined);
-  return { kind: 'ready', store: vaultNotebook(home, root), files: notebookFiles(home, root) };
+  return { kind: 'ready', store: vaultNotebook(home, root), files: notebookFiles(home, root, undefined, () => !!vault.pdfFolder) };
 }

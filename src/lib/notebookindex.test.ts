@@ -183,3 +183,21 @@ describe('freePath', () => {
     expect(await freePath(root, 'q.md')).toBe('q.md');
   });
 });
+
+describe('vaultFiles image lookup', () => {
+  const tree = (): Tree => ({ 'paper.md': note('d1'), deep: { nested: { 'fig.png': 'png' } } });
+
+  it('finds an image anywhere in a vault by name', async () => {
+    const { vaultFiles } = await import('./attachments');
+    const files = vaultFiles(() => ({ root: fakeDir(tree()), notePath: 'paper.md' }));
+    expect(await files.blob('fig.png')).not.toBeNull();
+  });
+
+  it('never walks a granted PDF folder for a missing image', async () => {
+    const { vaultFiles } = await import('./attachments');
+    const listed: string[] = [];
+    const files = vaultFiles(() => ({ root: fakeDir(tree(), listed), notePath: 'paper.md', shallow: true }));
+    expect(await files.blob('fig.png')).toBeNull();
+    expect(listed).not.toContain('deep/nested');
+  });
+});
