@@ -27,6 +27,7 @@
   import StatusBar from './StatusBar.svelte';
   import Toolbar from './Toolbar.svelte';
   import Viewer from './Viewer.svelte';
+  import PinsMount from './pins/PinsMount.svelte';
 
   let { request }: { request: PdfRequest } = $props();
 
@@ -184,6 +185,7 @@
     {/if}
     <main class="center">
       <Viewer {reader} />
+      <PinsMount {reader} />
       {#if reader.search.open}<SearchBar {reader} />{/if}
       {#if reader.ruler}<Ruler band={Math.max(22, 26 * reader.scale)} />{/if}
       {#if reader.focus}<button class="exit-focus" onclick={() => (reader!.focus = false)}>Exit focus <kbd>f</kbd></button>{/if}

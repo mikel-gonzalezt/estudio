@@ -51,6 +51,7 @@
     file: 'M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5',
     filePlus: 'M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M12 11v6M9 14h6',
     chevron: 'M9 6l6 6-6 6',
+    pin: 'M9 3h6M10 3v6l-4 5h12l-4-5V3M12 14v7',
     vault: 'M4 4h16v16H4zM4 9h16M9 9v11',
   } as const;
   export type IconName = keyof typeof PATHS;

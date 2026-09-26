@@ -13,6 +13,8 @@ export interface DocRecord {
   handle?: FileSystemFileHandle;
   /** Each annotation's updatedAt as of the last time the file at `handle` and Estudio agreed. */
   syncBase?: Record<AnnId, number>;
+  /** Area clips pinned to the floating figure panel, in the order they were pinned. */
+  pins?: AnnId[];
 }
 
 export type VaultId = string & { __brand: 'VaultId' };
@@ -96,7 +98,13 @@ export interface Settings {
   notebookFolder: VaultFolder | null;
   /** How notebooks are edited: formatted like a document, or as Markdown source. */
   editorMode: EditorMode;
+  /** Pinned figures: area clips kept in a floating panel over the reader. Off hides every trace of it. */
+  pinnedFigures: boolean;
+  pinPanel: PinPanelLayout;
 }
+
+/** The pinned-figure panel, placed by its distance in CSS px from the bottom-right corner of the page view. */
+export interface PinPanelLayout { right: number; bottom: number; w: number; h: number; collapsed: boolean; hidden: boolean; follow: boolean }
 
 export type EditorMode = 'document' | 'markdown';
 
@@ -112,6 +120,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoPageLinks: true,
   notebookFolder: null,
   editorMode: 'document',
+  pinnedFigures: true,
+  pinPanel: { right: 16, bottom: 16, w: 320, h: 260, collapsed: false, hidden: false, follow: true },
 };
 
 export function newId<T extends AnnId | CardId>(): T {
