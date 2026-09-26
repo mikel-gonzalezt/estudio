@@ -2,6 +2,44 @@
 
 A running log of what was built, what was decided, and what is pending. Newest session first.
 
+## 2026-09-26, session 2
+
+### Built
+
+1. **Defaults.** The left sidebar starts closed, and the notebook opens in Write mode.
+2. **Obsidian-style editing** in notebooks and notes.
+   - **Pairs:** brackets and quotes close themselves. Selecting text and typing `*`, `_` or `` ` `` wraps it.
+   - **Lists:** Enter continues bullet, numbered and checkbox lists. Tab and Shift+Tab indent and outdent. Enter on an empty item ends the list.
+   - **Format keys:** Ctrl+B bold, Ctrl+I italic, Ctrl+Shift+X strikethrough, Ctrl+E code, Ctrl+Shift+H `==highlight==`, Ctrl+Enter ticks a checkbox.
+   - **Styling:** headings and formatting are styled as you type, and checkboxes can be clicked. The editor font is now the UI font rather than monospace.
+3. **Notes that can live anywhere.**
+   - **The link is inside the note.** A notebook `.md` carries frontmatter: `estudio-doc: <id>` and `pdf: "[[name.pdf]]"`. Estudio finds the note by that id in any open vault, so it can be moved or renamed freely, including into an Obsidian vault opened as a second vault.
+   - **Older notebooks:** a `name.md` next to its PDF is adopted automatically.
+   - **Where new notebooks go:** next to the PDF by default, or a folder you choose. Set it from the notebook's ⋯ menu or the "Notebook location" command.
+   - **Notes stored inside Estudio** can be sent to a vault with "Move notebook to a vault…".
+4. **Download "Notes only (.md)".** Just the notebook text, without annotations or frontmatter. Page links become "(p. N)".
+5. **Toolbar fix.** On narrow windows the colour dots were squashed and the controls overlapped. Now the view controls (fit page, fit text width, focus, ruler, page mode) fold into a ⋯ menu below about 1240 px.
+
+### How it was checked
+
+- 194 tests pass.
+- The build agent drove every item in the browser, using sandboxed folders rather than real disk folders.
+- The toolbar and defaults were checked with headless Edge at 960–1300 px wide.
+- The local server (`scripts/serve.mjs`) was down after a restart, so it was started again.
+
+### Still to discuss (from session 1)
+
+- How to set Estudio as the default app for PDFs in Windows.
+
+### New known gaps
+
+- If two notes name the same PDF, the one with the shortest path wins.
+- A note moved into a vault by another app while Estudio is running is only found on the next start, or when the old location goes missing.
+- A "Quote to notebook" made while the vault is locked is lost.
+- Standalone notes show their raw frontmatter.
+- The notebook header wraps onto two lines at the default width.
+- Obsidian edits made while the note is open in Estudio are still overwritten; only the frontmatter is kept.
+
 ## 2026-09-25, session 1
 
 ### Built
