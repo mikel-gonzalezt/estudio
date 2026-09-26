@@ -129,9 +129,23 @@ describe('PDF annotations round trip', () => {
     expect(await fingerprint(await writeAnnotations(once, annotations.slice(1)))).toBe(before);
   });
 
-  it('keeps the pdf.js fingerprint of a real paper across saves', async () => {
+  it('keeps the pdf.js fingerprint when the file has a trailer /ID', async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage([600, 800]).drawText('A paper with an /ID', { x: 50, y: 700 });
+    const id = PDFHexString.of('0f1e2d3c4b5a69788796a5b4c3d2e1f0');
+    doc.context.trailerInfo.ID = doc.context.obj([id, id]);
+    const src = await doc.save();
+    expect((await PDFDocument.load(src)).context.trailerInfo.ID).toBeDefined();
+    const before = await fingerprint(src);
+    expect(before).toBe('0f1e2d3c4b5a69788796a5b4c3d2e1f0');
+    const once = await writeAnnotations(src, annotations);
+    expect(await fingerprint(once)).toBe(before);
+    expect(await fingerprint(await writeAnnotations(once, annotations.slice(1)))).toBe(before);
+  });
+
+  it('keeps the pdf.js fingerprint of a real document across saves', async () => {
     const fs = (await import('node:fs' as string)) as { readFileSync(path: string): Uint8Array };
-    const src = new Uint8Array(fs.readFileSync('samples/attention.pdf'));
+    const src = new Uint8Array(fs.readFileSync('samples/sample-study.pdf'));
     const before = await fingerprint(src);
     const once = await writeAnnotations(src, annotations);
     expect(await fingerprint(once)).toBe(before);

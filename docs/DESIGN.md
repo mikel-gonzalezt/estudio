@@ -102,8 +102,8 @@ PDFs and notes can live apart, for example PDFs in one vault and notes in an Obs
   ```yaml
   ---
   estudio-doc: ff3e15dfc6c8c63548b1c64bc2982fdb
-  pdf: "[[attention.pdf]]"
-  tags: [ml]          # anything else the user adds is kept
+  pdf: "[[sample-study.pdf]]"
+  tags: [biology]     # anything else the user adds is kept
   ---
   ```
 
