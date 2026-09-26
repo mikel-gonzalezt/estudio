@@ -63,7 +63,7 @@
 <main class="library">
   <header>
     <div class="brand">
-      <img src="/icon.svg" alt="" width="28" height="28" />
+      <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" width="28" height="28" />
       <h1>Estudio</h1>
     </div>
     <div class="actions">

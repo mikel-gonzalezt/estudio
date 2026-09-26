@@ -6,6 +6,9 @@ import { cpSync, createReadStream, existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CSP } from './scripts/csp.mjs';
 
+/** Where the app is served from: `/` locally, `/estudio/` on GitHub Pages. */
+const base = process.env.BASE ?? '/';
+
 /** Files fetched at runtime by URL, so they are served and copied as plain files: served path → source folder. */
 const STATIC_DIRS: Record<string, string> = {
   // pdf.js fetches CMaps, standard fonts and wasm decoders.
@@ -26,9 +29,9 @@ function staticDirs(): Plugin {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = decodeURIComponent((req.url ?? '').split('?')[0] ?? '');
-        const hit = Object.entries(STATIC_DIRS).find(([at]) => url.startsWith(`/${at}/`));
+        const hit = Object.entries(STATIC_DIRS).find(([at]) => url.startsWith(`${base}${at}/`));
         if (!hit) return next();
-        const file = join(hit[1], url.slice(hit[0].length + 2));
+        const file = join(hit[1], url.slice(base.length + hit[0].length + 1));
         if (!file.startsWith(hit[1]) || !existsSync(file) || !statSync(file).isFile()) return next();
         createReadStream(file).pipe(res);
       });
@@ -49,6 +52,7 @@ function cspMeta(): Plugin {
 }
 
 export default defineConfig({
+  base,
   plugins: [
     svelte(),
     staticDirs(),
@@ -64,7 +68,7 @@ export default defineConfig({
         background_color: '#f6f5f1',
         display: 'standalone',
         icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
-        file_handlers: [{ action: '/', accept: { 'application/pdf': ['.pdf'] } }],
+        file_handlers: [{ action: base, accept: { 'application/pdf': ['.pdf'] } }],
         // A PDF opened from Explorer goes to the window that is already open, through launchQueue.
         launch_handler: { client_mode: ['focus-existing', 'auto'] },
       },
