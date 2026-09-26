@@ -54,7 +54,7 @@ Estudio sends network requests only in these cases:
 - The browser fetches the app's own files from the address it was installed from, and checks that address for updates.
 - You click **Open paper** or **Search Scholar** in a citation preview, which opens `doi.org`, `arxiv.org`, the paper's URL or `scholar.google.com` in a new tab.
 - You click a web link in a PDF or in a note, which opens in a new tab.
-- A note contains an image by web address (`![](https://…)`). The preview and both editors load that image when the note is shown, without a click.
+- You click **Load** on a remote image in a note. A note image given by web address (`![](https://…)`) shows as "Remote image: *host* · Load" until you click. Estudio then fetches that one image, with no referrer and no cookies, and remembers the choice until the app closes. A Word export or a print writes the placeholder for any remote image you did not load.
 
 Read aloud uses only voices that run on the device. Edge's online voices are filtered out, so no text leaves the computer.
 
@@ -64,7 +64,21 @@ Read aloud uses only voices that run on the device. Edge's online voices are fil
 
 **Saving.** Every change goes to IndexedDB first. The PDF is then written through `createWritable()`, which Chromium stages in a temporary file and swaps in on `close()`, so a crash during a save leaves the old PDF intact. Before writing, Estudio reads the file again and merges annotations three ways against the last version both sides agreed on. The newer edit wins, an edit beats a deletion, and additions from both sides are kept, so annotations another app added are not overwritten.
 
-**Threat model.** The two untrusted inputs are PDFs and note files, for example a `.md` or a backup someone sent you. A malicious PDF meets pdf.js in a worker with no script execution, so the remaining risk is a bug in pdf.js or the browser. Keep Edge updated. In notes, the preview shows raw HTML as text instead of rendering it. A click on a link in the preview opens it in a new tab only when it is an `http` or `https` address, and does nothing otherwise. KaTeX runs with `trust` off, so a formula can't add links or HTML. Document mode turns HTML tags it recognises into its own nodes and keeps only the attributes those nodes define, so scripts and event handlers are dropped. A test note with `<script>`, `onerror`, `javascript:` links, an `<iframe>` and a KaTeX `\href` ran no script in any editor mode. A remote image in a note can tell its server that you opened the note, as a tracking pixel in an email does.
+**Threat model.** The two untrusted inputs are PDFs and note files, for example a `.md` or a backup someone sent you. A malicious PDF meets pdf.js in a worker with no script execution, so the remaining risk is a bug in pdf.js or the browser. Keep Edge updated.
+
+In notes, the preview shows raw HTML as text instead of rendering it. A link keeps its address only when it is an `http`, `https` or `mailto` address or an in-page `#` anchor. Estudio checks the address after decoding character references, as the browser reads it, so `javascript&#58;…` counts as `javascript:`. Any other link shows as plain text, in the preview, in Document mode (pasted HTML included) and in the Word export. A click, a middle click or Enter on a link never moves the Estudio window. A web link opens in a new tab that can't reach Estudio (`noopener`, `noreferrer`). KaTeX runs with `trust` off, so a formula can't add links or HTML. Document mode turns HTML tags it recognises into its own nodes and keeps only the attributes those nodes define, so scripts and event handlers are dropped. A test note with `<script>`, `onerror`, `javascript:` and `data:` links (plain, mixed case and entity-encoded), raw `<a>` tags and a KaTeX `\href` ran no script in any editor mode.
+
+**Content Security Policy.** The built app runs under this policy, kept in `scripts/csp.mjs`:
+
+```text
+default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline';
+img-src 'self' blob: data: https:; font-src 'self' data:; connect-src 'self' blob: data: https:;
+worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'
+```
+
+Scripts run only from Estudio's own address. `'wasm-unsafe-eval'` lets pdf.js compile its WebAssembly image decoders and still forbids `eval`. Inline styles are allowed because Svelte, KaTeX, both editors and MathLive set them. `https:` in `img-src` and `connect-src` is there for remote images you choose to load; the Word export reads a loaded image with `fetch`. A remote image on plain `http:` doesn't load, and one whose server sends no CORS headers shows in the app but not in the Word export. Nothing can load a plugin, open a frame or submit a form.
+
+The local server (`scripts/serve.mjs`) sends the policy as a header and adds `frame-ancestors 'none'`, so no other site can frame Estudio. GitHub Pages can't set headers, so the hosted copy carries the policy in a `<meta>` tag only. There it can't forbid framing, as browsers ignore `frame-ancestors` in a `<meta>` tag, and it doesn't reach the pdf.js worker, which takes its policy from the worker script's own headers.
 
 ## How it was built
 
