@@ -1,3 +1,4 @@
+import { dbFiles, vaultFiles, type NoteFiles } from './attachments';
 import { getNotebook, listVaults, putNotebook } from './db';
 import { hasPermission } from './fsaccess';
 import { notebookFrontmatter, notebookIdIn, splitFrontmatter } from './frontmatter';
@@ -107,17 +108,28 @@ export function vaultNotebook(
   };
 }
 
+/** Where the images of the notebook at `home` go, following the file when Estudio moves it. */
+export function notebookFiles(home: NotebookHome, root: (vault: VaultId) => FileSystemDirectoryHandle | undefined, tracker?: NotebookTracker): NoteFiles {
+  if (home.kind === 'db') return dbFiles();
+  return vaultFiles(() => {
+    const loc = tracker?.where(home.docId) ?? { vault: home.vault, path: home.path };
+    const r = root(loc.vault);
+    return r ? { root: r, notePath: loc.path } : null;
+  });
+}
+
 export type Resolved =
-  | { kind: 'ready'; store: NotebookStore }
+  | { kind: 'ready'; store: NotebookStore; files: NoteFiles }
   /** The vault's access grant lapsed; asking again needs a click. */
   | { kind: 'locked'; vault: Vault }
   | { kind: 'missing'; reason: string };
 
 /** Finds the store for `home` from scratch, as a window that did not open the document must. */
 export async function resolveHome(home: NotebookHome): Promise<Resolved> {
-  if (home.kind === 'db') return { kind: 'ready', store: idbNotebook(home.docId) };
+  if (home.kind === 'db') return { kind: 'ready', store: idbNotebook(home.docId), files: dbFiles() };
   const vault = (await listVaults()).find((v) => v.id === home.vault);
   if (!vault) return { kind: 'missing', reason: 'The vault that holds this notebook is no longer in Estudio.' };
   if (!(await hasPermission(vault.handle, 'readwrite'))) return { kind: 'locked', vault };
-  return { kind: 'ready', store: vaultNotebook(home, (id) => (id === vault.id ? vault.handle : undefined)) };
+  const root = (id: VaultId) => (id === vault.id ? vault.handle : undefined);
+  return { kind: 'ready', store: vaultNotebook(home, root), files: notebookFiles(home, root) };
 }

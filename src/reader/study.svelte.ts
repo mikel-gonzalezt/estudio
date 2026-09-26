@@ -3,7 +3,7 @@ import { newSrs } from '../lib/fsrs';
 import { appendBlock, quoteBlock } from '../lib/notebook';
 import { app, type VaultPlace } from '../lib/app.svelte';
 import { notebookIndex } from '../lib/notebookindex';
-import { idbNotebook, linkedPdfName, vaultNotebook, type NotebookHome, type NotebookStore, type VaultHome } from '../lib/notebookstore';
+import { idbNotebook, linkedPdfName, notebookFiles, vaultNotebook, type NotebookHome, type NotebookStore, type VaultHome } from '../lib/notebookstore';
 import { popoutHash } from '../lib/notebooksync';
 import { namePageLinks } from '../lib/pagelink';
 import { freePath } from '../lib/vault';
@@ -19,6 +19,8 @@ export interface CardDraft { page: number; text: string; annId?: AnnId; cloze: b
 
 /** Saves nothing: the notebook's vault cannot be read until access is granted again. */
 const UNREACHABLE: NotebookStore = { load: async () => '', save: async () => {} };
+
+const filesFor = (home: NotebookHome) => notebookFiles(home, (id) => notebookIndex.root(id), notebookIndex);
 
 function storeFor(home: NotebookHome): NotebookStore | null {
   if (home.kind === 'db') return idbNotebook(home.docId);
@@ -57,7 +59,7 @@ export class Study {
     const store = storeFor(home);
     if (!store && home.kind === 'vault') this.blocked = vaults.list.find((v) => v.id === home.vault) ?? null;
     const channel = new NotebookChannel(docId);
-    this.notebook = new NotebookDoc(docId, channel, store ?? UNREACHABLE, linkedPdfName(home));
+    this.notebook = new NotebookDoc(docId, channel, store ?? UNREACHABLE, filesFor(home), linkedPdfName(home));
     channel.on((m) => {
       if (m.t === 'hello') this.notebook.announce();
       if (m.t === 'hello' || m.t === 'open') this.poppedOut = true;
@@ -116,7 +118,7 @@ export class Study {
     if (!v || !(await vaults.unlock(v))) return false;
     const store = storeFor(this.home);
     if (!store) return false;
-    this.notebook.rehome(store, linkedPdfName(this.home));
+    this.notebook.rehome(store, filesFor(this.home), linkedPdfName(this.home));
     await this.notebook.reload();
     this.blocked = null;
     return true;
@@ -137,7 +139,7 @@ export class Study {
     const store = storeFor(home)!;
     const text = namePageLinks(this.notebook.markdown, pdfName);
     await store.save(text, true);
-    this.notebook.rehome(store, pdfName);
+    this.notebook.rehome(store, filesFor(home), pdfName);
     this.home = home;
     this.notebook.edit(text);
   }

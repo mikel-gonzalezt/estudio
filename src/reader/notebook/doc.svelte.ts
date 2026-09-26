@@ -1,4 +1,5 @@
 import { channelName, DISK_REV, newer, nextRev, NO_REV, type NotebookMsg, type Rev } from '../../lib/notebooksync';
+import type { NoteFiles } from '../../lib/attachments';
 import type { NotebookStore } from '../../lib/notebookstore';
 import type { DocId } from '../../lib/types';
 
@@ -39,6 +40,8 @@ export class NotebookDoc {
   readonly channel: NotebookChannel;
   /** The PDF's file name when the notebook is a `.md` in a vault; page links then name it. */
   pdfName: string | undefined;
+  /** Where pasted images go and how referenced ones are found. */
+  files: NoteFiles;
   #store: NotebookStore;
   markdown = $state('');
   readonly #self = crypto.randomUUID();
@@ -46,10 +49,11 @@ export class NotebookDoc {
   #dirty = false;
   #timer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(docId: DocId, channel: NotebookChannel, store: NotebookStore, pdfName?: string) {
+  constructor(docId: DocId, channel: NotebookChannel, store: NotebookStore, files: NoteFiles, pdfName?: string) {
     this.docId = docId;
     this.channel = channel;
     this.#store = store;
+    this.files = files;
     this.pdfName = pdfName;
     channel.on((m) => {
       if (m.t === 'text') this.#receive(m.markdown, m.rev);
@@ -67,10 +71,11 @@ export class NotebookDoc {
   }
 
   /** From now on the notebook is kept in `store`. */
-  rehome(store: NotebookStore, pdfName: string | undefined) {
+  rehome(store: NotebookStore, files: NoteFiles, pdfName: string | undefined) {
     clearTimeout(this.#timer);
     this.#dirty = false;
     this.#store = store;
+    this.files = files;
     this.pdfName = pdfName;
   }
 

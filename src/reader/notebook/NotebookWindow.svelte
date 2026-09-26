@@ -38,7 +38,7 @@
       blocked = r;
       return;
     }
-    const d = new NotebookDoc(docId, channel, r.store, linkedPdfName(home));
+    const d = new NotebookDoc(docId, channel, r.store, r.files, linkedPdfName(home));
     await d.load();
     blocked = null;
     doc = d;

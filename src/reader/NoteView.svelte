@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte';
   import { app, type NoteRequest } from '../lib/app.svelte';
+  import { vaultFiles } from '../lib/attachments';
   import { fileNotebook } from '../lib/notebookstore';
   import type { DocId } from '../lib/types';
   import { vaults } from '../lib/vaults.svelte';
@@ -15,7 +16,11 @@
 
   const place = untrack(() => request.place);
   const docId = `note:${place.path}` as DocId;
-  const doc = new NotebookDoc(docId, new NotebookChannel(docId), fileNotebook(place.dir, place.name));
+  const files = vaultFiles(() => {
+    const root = vaults.list.find((v) => v.id === place.vault)?.handle;
+    return root ? { root, notePath: place.path } : null;
+  });
+  const doc = new NotebookDoc(docId, new NotebookChannel(docId), fileNotebook(place.dir, place.name), files);
   let loaded = $state(false);
   let error = $state('');
   let notice = $state('');

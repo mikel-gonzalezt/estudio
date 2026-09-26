@@ -13,7 +13,11 @@ interface Schema extends DBSchema {
   settings: { key: string; value: unknown };
   handles: { key: DocId; value: FileSystemFileHandle };
   vaults: { key: VaultId; value: Vault };
+  attachments: { key: string; value: Attachment };
 }
+
+/** An image kept for a notebook that lives in IndexedDB; notes reference it as `estudio-attachment:<id>`. */
+export interface Attachment { id: string; blob: Blob; name: string; createdAt: number }
 
 // Svelte state proxies are not structured-cloneable, so everything is copied to plain data on write.
 function plain<T>(v: T): T {
@@ -23,7 +27,7 @@ function plain<T>(v: T): T {
 let dbp: Promise<IDBPDatabase<Schema>> | undefined;
 
 function db(): Promise<IDBPDatabase<Schema>> {
-  dbp ??= openDB<Schema>('estudio', 2, {
+  dbp ??= openDB<Schema>('estudio', 3, {
     upgrade(d, oldVersion) {
       if (oldVersion < 1) {
         d.createObjectStore('docs', { keyPath: 'id' });
@@ -36,6 +40,7 @@ function db(): Promise<IDBPDatabase<Schema>> {
         d.createObjectStore('handles');
       }
       if (oldVersion < 2) d.createObjectStore('vaults', { keyPath: 'id' });
+      if (oldVersion < 3) d.createObjectStore('attachments', { keyPath: 'id' });
     },
   });
   return dbp;
@@ -145,6 +150,15 @@ export async function getNotebookIndex(): Promise<Record<DocId, NotebookLoc>> {
 
 export async function putNotebookIndex(index: Record<DocId, NotebookLoc>): Promise<void> {
   await (await db()).put('settings', plain(index), 'notebookIndex');
+}
+
+/** Blobs are structured-cloneable, so the record is stored as is. */
+export async function putAttachment(a: Attachment): Promise<void> {
+  await (await db()).put('attachments', a);
+}
+
+export async function getAttachment(id: string): Promise<Attachment | undefined> {
+  return (await db()).get('attachments', id);
 }
 
 export async function getSettings(): Promise<Settings> {

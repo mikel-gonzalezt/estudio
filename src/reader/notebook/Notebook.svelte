@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import Icon from '../../components/Icon.svelte';
+  import '../../styles/notes.css';
+  import { hydrateNotes } from '../../lib/hydrate';
   import { renderMarkdown } from '../../lib/notebook';
   import type { NotebookDoc } from './doc.svelte';
   import type { NotebookHost } from './host.svelte';
@@ -21,6 +23,11 @@
   type Mode = 'write' | 'both' | 'preview';
   let mode = $state<Mode>('write');
   const html = $derived(renderMarkdown(doc.markdown));
+
+  function hydrate(node: HTMLElement, html: string) {
+    void hydrateNotes(node, doc.files);
+    return { update: () => void hydrateNotes(node, doc.files) };
+  }
 
   function onPreviewClick(e: MouseEvent) {
     const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a');
@@ -54,7 +61,7 @@
   {/if}
   {#if mode !== 'write'}
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-    <div class="preview scroll-thin" onclick={onPreviewClick} data-testid="notebook-preview">
+    <div class="preview notes-html scroll-thin" onclick={onPreviewClick} use:hydrate={html} data-testid="notebook-preview">
       {#if doc.markdown.trim()}{@html html}{:else}<p class="muted">Nothing here yet. Type <code>[[</code> to link a page or section.</p>{/if}
     </div>
   {/if}
@@ -70,21 +77,5 @@
   .toggle.on { color: var(--accent); background: var(--accent-soft); }
   code { font: 11px var(--mono); }
   [data-mode='both'] :global(.cm-host) { flex: 1 1 50%; border-bottom: 1px solid var(--border); }
-  .preview { flex: 1 1 50%; min-height: 0; overflow: auto; padding: 4px 14px 14px; font-size: 13.5px; line-height: 1.6; }
-  .preview :global(blockquote) { margin: 10px 0; padding: 2px 12px; border-left: 3px solid var(--accent); color: var(--text); background: var(--surface-2); border-radius: 0 6px 6px 0; }
-  .preview :global(h1) { font-size: 18px; }
-  .preview :global(h2) { font-size: 16px; }
-  .preview :global(h3) { font-size: 14px; }
-  .preview :global(.plink) {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 10px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .preview :global(mark) { background: color-mix(in srgb, #f5d000 40%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
-  .preview :global(code) { background: var(--surface-2); padding: 0 4px; border-radius: 4px; }
+  .preview { flex: 1 1 50%; min-height: 0; overflow: auto; padding: 4px 14px 14px; }
 </style>
