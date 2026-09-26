@@ -65,13 +65,15 @@ A partir de ahí abre Estudio desde el menú Inicio. No hace falta volver a hace
 
 La dirección web de Estudio es:
 
-<!-- HOSTED_URL -->
+**<https://mikel-gonzalezt.github.io/estudio/>**
 
 1. Abre esa dirección en Edge o en Chrome.
 2. Pulsa **Install Estudio**, arriba en la pantalla de inicio.
 3. Si no ves ese botón, abre el menú del navegador (los tres puntos de arriba a la derecha) y busca **Aplicaciones › Instalar este sitio como una aplicación** en Edge, o **Instalar Estudio** en Chrome.
 
 En un iPad, Safari no muestra ese botón. Pulsa el botón de compartir (el cuadrado con una flecha hacia arriba) y elige **Añadir a pantalla de inicio**.
+
+Lo que guardes en la versión web no aparece en la que instalaste con el script, ni al revés. El navegador guarda por separado los datos de cada dirección.
 
 ### Qué funciona en el móvil y en la tableta
 

@@ -26,9 +26,12 @@ Estudio is a PDF reader for studying. You highlight in colours that mean somethi
 
 ### From the web
 
-<!-- HOSTED_URL -->
+Estudio is at **<https://mikel-gonzalezt.github.io/estudio/>**.
 
-Open the address in Edge or Chrome and click **Install Estudio** at the top of the library. On Windows, Estudio then appears in the Start menu and under **Open with** for PDF files.
+1. Open the address in Edge or Chrome.
+2. Click **Install Estudio** at the top of the library. If the button is missing, use the install icon in the address bar.
+
+On Windows, Estudio then appears in the Start menu and under **Open with** for PDF files. A copy installed from the web keeps its own library, apart from a copy installed from source, because the browser keeps each address's storage separate.
 
 On Android and iPad, Estudio reads, annotates and keeps notes, but it keeps everything inside the app. Those browsers can't grant access to folders or save into files, so vaults and saving into the PDF work on a computer only.
 
@@ -84,3 +87,7 @@ npm run preview    # serve dist/ with the service worker
 - [DESIGN.md](docs/DESIGN.md) covers the design, the data model and how each feature works.
 - [NOTES-FORMAT.md](docs/NOTES-FORMAT.md) is the Markdown contract between the editors and the exporters.
 - [BITACORA.md](docs/BITACORA.md) is the session log of what was built and decided.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
