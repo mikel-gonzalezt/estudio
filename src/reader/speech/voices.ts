@@ -18,19 +18,25 @@ export function pickVoice<V extends VoiceLike>(voices: readonly V[], lang: strin
   return speaking.find((v) => v.default) ?? speaking[0] ?? voices.find((v) => v.default) ?? voices[0] ?? null;
 }
 
-const VOICES_TIMEOUT_MS = 1500;
+const VOICES_TIMEOUT_MS = 2000;
 
-/** The browser fills its voice list asynchronously; waits briefly for `voiceschanged`. */
+/**
+ * The browser fills its voice list asynchronously, and Edge lists its online voices a moment
+ * before the offline ones; waits briefly for `voiceschanged` to bring an offline voice.
+ */
 export function loadVoices(synth: SpeechSynthesis): Promise<SpeechSynthesisVoice[]> {
-  const now = synth.getVoices();
-  if (now.length) return Promise.resolve(now);
+  const ready = () => offlineVoices(synth.getVoices()).length > 0;
+  if (ready()) return Promise.resolve(synth.getVoices());
   return new Promise((done) => {
     const finish = () => {
       clearTimeout(timer);
-      synth.removeEventListener('voiceschanged', finish);
+      synth.removeEventListener('voiceschanged', check);
       done(synth.getVoices());
     };
+    const check = () => {
+      if (ready()) finish();
+    };
     const timer = setTimeout(finish, VOICES_TIMEOUT_MS);
-    synth.addEventListener('voiceschanged', finish);
+    synth.addEventListener('voiceschanged', check);
   });
 }

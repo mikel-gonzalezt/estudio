@@ -96,6 +96,12 @@ export interface Settings {
   notebookFolder: VaultFolder | null;
   /** How notebooks are edited: formatted like a document, or as Markdown source. */
   editorMode: EditorMode;
+  /** Read aloud shows its buttons, key and commands. */
+  readAloud: boolean;
+  /** Speaking rate, 1 being the voice's normal speed. */
+  speechRate: number;
+  /** The voice (`voiceURI`) chosen for each document language; '' holds the choice for undetected languages. */
+  speechVoices: Record<string, string>;
 }
 
 export type EditorMode = 'document' | 'markdown';
@@ -112,6 +118,9 @@ export const DEFAULT_SETTINGS: Settings = {
   autoPageLinks: true,
   notebookFolder: null,
   editorMode: 'document',
+  readAloud: true,
+  speechRate: 1,
+  speechVoices: {},
 };
 
 export function newId<T extends AnnId | CardId>(): T {
