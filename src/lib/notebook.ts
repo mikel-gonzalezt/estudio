@@ -39,6 +39,18 @@ const md = new Marked({
   },
   extensions: [
     {
+      name: 'highlight',
+      level: 'inline',
+      start: (src: string) => src.indexOf('=='),
+      tokenizer(src: string) {
+        const m = /^==(?=[^=\s])([^=\n]*?[^=\s])==/.exec(src);
+        return m ? { type: 'highlight', raw: m[0], tokens: this.lexer.inlineTokens(m[1]!) } : undefined;
+      },
+      renderer(token) {
+        return `<mark>${this.parser.parseInline(token.tokens ?? [])}</mark>`;
+      },
+    },
+    {
       name: 'pageLink',
       level: 'inline',
       start: (src: string) => src.indexOf('[['),

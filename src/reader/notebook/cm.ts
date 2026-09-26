@@ -1,7 +1,7 @@
 import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, insertNewlineAndIndent } from '@codemirror/commands';
-import { deleteMarkupBackward, insertNewlineContinueMarkup, markdownLanguage } from '@codemirror/lang-markdown';
-import { defaultHighlightStyle, LanguageSupport, syntaxHighlighting } from '@codemirror/language';
+import { markdownLanguage } from '@codemirror/lang-markdown';
+import { LanguageSupport } from '@codemirror/language';
 import { EditorState, Prec, RangeSetBuilder, StateField, Transaction, type Text } from '@codemirror/state';
 import {
   Decoration, EditorView, WidgetType, drawSelection, keymap, placeholder, type Command, type DecorationSet,
@@ -11,6 +11,7 @@ import {
   autoLinkInsert, blockInsertion, chipText, formatPageLink, isFirstKeystroke, parsePageLinks, startsParagraph, type LinkTarget,
 } from '../../lib/pagelink';
 import type { NotebookHost } from './host.svelte';
+import { continueMarkup, markdownEditing } from './mdediting';
 
 export interface EditorHooks {
   host: NotebookHost;
@@ -127,7 +128,7 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
     const line = view.state.doc.lineAt(sel.head);
     const page = host.context.page;
     const fire = page !== null && hooks.autoLinks() && sel.empty && startsParagraph(line.text, sel.head === line.to);
-    if (!insertNewlineContinueMarkup(view)) insertNewlineAndIndent(view);
+    if (!continueMarkup(view)) insertNewlineAndIndent(view);
     if (!fire) return true;
     const pos = view.state.selection.main.head;
     const insert = autoLinkInsert(view.state.doc.toString(), pos, page, pdfName);
@@ -190,7 +191,6 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
         drawSelection(),
         EditorView.lineWrapping,
         new LanguageSupport(markdownLanguage),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         placeholder(host.context.page === null
           ? '# Notes\n\nWrite in Markdown. [[paper.pdf#page=3]] links a page of a PDF in the vault.'
           : '# Notes\n\nWrite in Markdown. [[ links a page, Ctrl+L links the page you are reading.'),
@@ -199,8 +199,8 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
         Prec.high(keymap.of([
           { key: 'Enter', run: enterWithLink },
           { key: 'Mod-l', run: insertCurrentLink, preventDefault: true },
-          { key: 'Backspace', run: deleteMarkupBackward },
         ])),
+        Prec.high(markdownEditing()),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         firstKeystrokeLink,
         events,

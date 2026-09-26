@@ -116,6 +116,8 @@ Annotating
 
 Studying
 - Notebook pane per document (markdown, live preview). "Quote to notebook" on any selection or annotation inserts a blockquote with a `[[pN]]` back-link.
+- Editing works like Obsidian's. Brackets and double quotes close themselves, and typing `*`, `_` or `` ` `` over a selection wraps it. Enter continues bullet, numbered and checkbox lists (renumbering numbered ones), Enter on an empty item ends the list, Backspace after an empty item's marker removes it, and Tab / Shift+Tab indent and outdent. Ctrl+B, Ctrl+I, Ctrl+Shift+X, Ctrl+E and Ctrl+Shift+H toggle bold, italic, strikethrough, inline code and `==highlight==`; Ctrl+Enter toggles a checkbox, and clicking `[ ]` does too. The text transforms are pure functions in `src/lib/mdedit.ts`; the CodeMirror wiring is `src/reader/notebook/mdediting.ts`.
+- A light live preview styles the Markdown without hiding any character: headings are larger, emphasis, strikethrough, highlights and code are styled, and their markers are dimmed. The preview pane renders `==text==` as a highlight.
 - Page links show as compact chips in the editor ("p. 12" or their label). Clicking a chip, or Ctrl/Cmd+clicking link text, jumps the reader. Ctrl+L inserts a link to the page on screen.
 - Typing `[[` opens a completion list: the current page first, then outline sections (link labelled with the section title), then annotations whose text matches what was typed (labelled with an excerpt).
 - Dragging an annotation from the sidebar, or selected page text, into the editor drops a blockquote with a page link at that spot.
@@ -132,7 +134,7 @@ Layout
 
 Keyboard and discovery
 - Command palette (Ctrl+K) listing every action with its shortcut.
-- `j/k` scroll, `J/K` or PgDn/PgUp page, `g` go to page, `h` highlight tool, `u` underline, `p` pen, `n` note, `e` eraser, `v`/Esc select, `1`–`6` colour, `/` or Ctrl+F search, `f` focus mode, `r` ruler, `b` toggle sidebar, `W` widen notebook. In the notebook editor: Ctrl+L link current page, `[[` link completion.
+- `j/k` scroll, `J/K` or PgDn/PgUp page, `g` go to page, `h` highlight tool, `u` underline, `p` pen, `n` note, `e` eraser, `v`/Esc select, `1`–`6` colour, `/` or Ctrl+F search, `f` focus mode, `r` ruler, `b` toggle sidebar, `W` widen notebook. In the notebook editor: Ctrl+L link current page, `[[` link completion, and the formatting keys above. The editor keeps its own keys: reader shortcuts never fire while typing in it.
 
 Export and safety
 - Export highlights + notes + notebook to Markdown (Obsidian-friendly).

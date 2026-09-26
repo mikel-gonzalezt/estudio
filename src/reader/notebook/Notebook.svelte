@@ -85,5 +85,6 @@
     text-decoration: none;
     white-space: nowrap;
   }
+  .preview :global(mark) { background: color-mix(in srgb, #f5d000 40%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
   .preview :global(code) { background: var(--surface-2); padding: 0 4px; border-radius: 4px; }
 </style>

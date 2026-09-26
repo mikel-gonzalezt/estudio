@@ -42,7 +42,7 @@
 
 <style>
   .cm-host { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
-  .cm-host :global(.cm-editor) { flex: 1; min-height: 0; font: 13px/1.6 var(--mono); }
+  .cm-host :global(.cm-editor) { flex: 1; min-height: 0; font: 14px/1.6 var(--font); }
   .cm-host :global(.cm-editor.cm-focused) { outline: none; }
   .cm-host :global(.cm-scroller) { overflow: auto; font-family: inherit; line-height: inherit; }
   .cm-host :global(.cm-content) { padding: 12px 0; caret-color: var(--text); }
@@ -50,6 +50,12 @@
   .cm-host :global(.cm-cursor) { border-left-color: var(--text); }
   .cm-host :global(.cm-selectionBackground) { background: var(--accent-soft) !important; }
   .cm-host :global(.cm-placeholder) { color: var(--muted); }
+  .cm-host :global(.cm-md-mark) { color: var(--muted); opacity: 0.7; }
+  .cm-host :global(.cm-md-hl) { background: color-mix(in srgb, #f5d000 40%, transparent); border-radius: 2px; }
+  .cm-host :global(.cm-md-code) { font: 12.5px var(--mono); background: var(--surface-2); border-radius: 3px; }
+  .cm-host :global(.cm-md-link) { color: var(--accent); }
+  .cm-host :global(.cm-md-quote) { color: var(--muted); font-style: italic; }
+  .cm-host :global(.cm-md-task) { font-family: var(--mono); color: var(--accent); cursor: pointer; }
   .cm-host :global(.cm-plink) {
     font: 600 11px var(--font);
     padding: 1px 7px;

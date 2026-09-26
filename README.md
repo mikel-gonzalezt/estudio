@@ -67,6 +67,9 @@ To install as an app, open the preview or a deployed build in Chrome or Edge and
 | `W` | Widen notebook / restore its width |
 | `Ctrl+L` (in the notebook) | Link the page on screen |
 | `[[` (in the notebook) | Link the current page, a section or an annotation |
+| `Ctrl+B`, `Ctrl+I`, `Ctrl+Shift+X`, `Ctrl+E`, `Ctrl+Shift+H` (in the notebook) | Bold, italic, strikethrough, inline code, `==highlight==`; pressing again removes it |
+| `Ctrl+Enter` (in the notebook) | Toggle a checkbox on the current line |
+| `Tab` / `Shift+Tab` (in the notebook) | Indent / outdent list items |
 | Arrow keys on a pane handle | Resize the pane (Shift for bigger steps, double-click to reset) |
 | `R` | Review due cards |
 | `f`, `r` | Focus mode, reading ruler |
