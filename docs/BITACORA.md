@@ -44,6 +44,38 @@ Estudio is a study-focused PDF reader that runs as an installed Edge app (PWA) o
 
 Read this file first. Suggested order: a small settings screen; then whatever real use shows is missing; then OCR, if scanned material becomes common.
 
+## 2026-09-26, session 8
+
+### Security audit: findings
+
+- **Links in notes.** The preview removed `href="javascript:…"` with a regex. An entity-encoded scheme (`javascript&#58;…`) and `data:text/html,…` links got through, and the browser decodes the entity when it reads the attribute. Clicks were guarded, but a middle click or an unguarded path could still follow such a link.
+- **Remote images.** `![](https://…)` loaded as soon as a note was shown, in the preview and both editors, so a shared note could work as a tracking pixel.
+- **No Content Security Policy.** Nothing limited where scripts, frames or plugins could come from if an injection ever got through.
+
+### Fixes
+
+- **Link allowlist** (`src/lib/safeurl.ts`). A link keeps its href only when, after decoding character references as the browser would, the URL parser reads it as `http:`, `https:` or `mailto:`, or it is an in-page `#` anchor. Anything else renders as plain text. The same check runs in the marked renderer (preview and print), in Document mode (TipTap's `isAllowedUri`, which also covers pasted HTML and `setLink`) and in the Word export. In the preview and Document mode, click, middle click and Enter never navigate the app window; web links open in a new tab with `noopener,noreferrer`. Tests cover a hostile corpus: entity-encoded, mixed case, control characters, `vbscript:`, `data:`, autolinks, reference links, raw `<a>`, and KaTeX `\href`.
+- **Click-to-load remote images** (`imageSource` and `mayFetch` in `src/lib/attachments.ts`, the placeholder in `src/lib/hydrate.ts`). Remote images show "Remote image: host · Load" in the preview, both editors and print; a click loads that image for the session, with no referrer and no credentials. Word export writes `[Remote image: host]` unless the image was loaded. Local attachments and `data:` images of image types load as before; other `data:` types and schemes never load.
+- **CSP** (`scripts/csp.mjs`). The build writes it as a `<meta>` tag; `scripts/serve.mjs` sends it as a header plus `frame-ancestors 'none'`. Final value: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; font-src 'self' data:; connect-src 'self' blob: data: https:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'`. Nothing needed `'unsafe-eval'`: pdf.js 6 and MathLive have no `eval`, and the `Function(…)` calls in the docx bundle (polyfills) never ran during an export. `https:` stays in `connect-src` because the Word export fetches a loaded remote image.
+- `serve.mjs` takes `PORT` and `DIST` from the environment (defaults 4173 and `dist`).
+
+### Publishing on GitHub Pages
+
+- `BASE` sets the base path (`/estudio/` on Pages, `/` by default); the manifest's `start_url`, `scope` and file handler, the service worker scope and the library logo follow it.
+- `.github/workflows/pages.yml` tests, builds with `BASE=/estudio/` and deploys on each push to `main`. Pages must be set to **GitHub Actions** as its source.
+- MIT `LICENSE`; the README and GUIA give <https://mikel-gonzalezt.github.io/estudio/>.
+- `samples/attention.pdf` left the repository (it is still in git history). The fingerprint test now uses a generated PDF with a trailer `/ID` and `samples/sample-study.pdf`.
+
+### Verified
+
+Headless Edge over CDP drove both builds, `/` served by `serve.mjs` with the header and `/estudio/` served like Pages (meta tag only). With listeners on every page, worker and service worker, neither run logged a CSP violation while it opened `sample-study.pdf`, highlighted, typeset KaTeX in Document mode, used the MathLive dialog, switched to Markdown mode and the preview, opened the notebook and pinned-figure pop-outs and the read-aloud bar, exported Word, built the print view, registered the service worker and reloaded offline. `Page.getInstallabilityErrors` was empty. In a hostile note every link rendered inert, and no request reached the image host until **Load** was clicked.
+
+### Gaps
+
+- A loaded remote image whose server sends no CORS headers shows in the app but not in the Word export, which writes "image not found".
+- Remote images on plain `http:` never load under the CSP.
+- On Pages the policy can't forbid framing and doesn't reach the pdf.js worker.
+
 ## 2026-09-26, session 7
 
 ### Findings
