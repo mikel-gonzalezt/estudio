@@ -21,7 +21,7 @@ Estudio is a study-focused PDF reader that runs as an installed Edge app (PWA) o
 
 - **Build and update:** `scripts\install.ps1` builds the app, starts `scripts/serve.mjs` on `127.0.0.1:4173`, and opens Edge. The installed app works without the server. The server is only needed to pick up updates, and the app switches to a new version the next time it shows the library.
 - **Opening PDFs:** Estudio is registered as a PDF handler, so it appears under "Open with". To make it the default: Settings › Apps › Default apps › `.pdf` › Estudio.
-- **Where data lives:** annotations are in the PDF files. Notes are `.md` files (or IndexedDB for PDFs outside a vault). Cards, progress and settings are in IndexedDB, in the Edge profile, under `http://127.0.0.1:4173`. Keep that port fixed, because the data belongs to that address.
+- **Where data lives:** annotations are in the PDF files. Notes are `.md` files, in a vault or next to a PDF outside a vault once its folder was granted with "Save as file › Next to the PDF". Until then, and for PDFs opened without a file handle, they are in IndexedDB. Cards, progress and settings are in IndexedDB, in the Edge profile, under `http://127.0.0.1:4173`. Keep that port fixed, because the data belongs to that address.
 - **Voices:** read aloud needs Windows OneCore voices. As of this date the PC has Helena, Laura and Pablo (es-ES) and David, Mark and Zira (en-US).
 
 ### Parked, by the user's decision
@@ -43,6 +43,30 @@ Estudio is a study-focused PDF reader that runs as an installed Edge app (PWA) o
 ### If work resumes
 
 Read this file first. Suggested order: a small settings screen; then whatever real use shows is missing; then OCR, if scanned material becomes common.
+
+## 2026-09-26, session 6
+
+### Fixed
+
+1. **Notebooks next to PDFs outside a vault.** "New notebooks go in: Next to the PDF" was selected, yet a PDF opened by Open with, Open PDF or drag and drop kept its notebook in IndexedDB without saying so. The user could not find the `.md`.
+   - **The label:** such a notebook now shows "Saved inside Estudio · Save as file" in its header. The menu offers "Next to the PDF" and "In a vault folder…".
+   - **Next to the PDF:** asks once for the PDF's folder, then writes `<pdf name>.md` beside the PDF, with its frontmatter and its pasted images in `attachments/`. A same-named `.md` is never overwritten. A folder that doesn't hold the PDF is refused, and nothing is written.
+   - **Later PDFs:** other PDFs in that folder, or below it, get their notebook beside them without asking. After a restart, the folder may need one "Allow access" click.
+   - **Not a vault:** the granted folder is not shown in the vault list or the Files tree. Estudio reads only the PDF's own folder in it, never the whole folder, because it may be Downloads.
+   - **No handle:** a PDF opened through the plain file input offers only a vault folder or the notes download, and says why.
+   - **Failures:** if a write fails, the files written so far are removed and the IndexedDB notebook stays in use.
+
+### How it was checked
+
+- 374 tests pass, including new ones for the offer table, the shallow PDF-folder lookup, `placeIn` and name uniqueness. The build passes.
+- In headless Edge with OPFS folders, 37 checks passed. They covered the label and menu, a wrong folder writing nothing, and a failed `.md` write leaving no file while IndexedDB stays in use. The move wrote `paper (2).md` beside an unrelated `paper.md`, with frontmatter and a rewritten image reference. Edits and the pop-out wrote the file, and reopening found it. A second PDF got `second.md` with no picker. The folder was absent from the vault list and Files tree, a vault PDF behaved as before, and a PDF opened without a handle got the reduced menu.
+
+### Known gaps
+
+- **Lapsed grants:** the one-click "Allow access" after a restart was not exercised, because OPFS never loses its grant.
+- **Real disk:** "Open with" and the real folder picker were not driven. The test opened PDFs through the Open PDF picker with OPFS handles.
+- **Existing notebook in the picked folder:** if the picked folder already holds a notebook file for this PDF, "Next to the PDF" still writes a new `name (2).md`, and the index then prefers one of the two.
+- **Broken image links:** in a PDF folder, an image reference that resolves nowhere still falls back to searching the whole folder by name.
 
 ## 2026-09-26, session 5
 
