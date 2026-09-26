@@ -11,6 +11,7 @@
   const ann = $derived(reader.ann);
   let meaningsOpen = $state(false);
   let exportOpen = $state(false);
+  let moreOpen = $state(false);
   let exporting = $state(false);
 
   async function run(f: () => unknown) {
@@ -28,6 +29,18 @@
     app.saveSettings();
   }
 </script>
+
+{#snippet viewControls()}
+  <button title="Fit page (Ctrl 9)" onclick={() => reader.fitPage()}><Icon name="fitPage" /></button>
+  <button title="Fit text width (w)" aria-label="Fit text width" class:on={reader.fit === 'text'} onclick={() => reader.toggleTextWidth()}><Icon name="fitText" /></button>
+  <button title="Focus mode (f)" onclick={() => (reader.focus = true)}><Icon name="focus" /></button>
+  <button title="Reading ruler (r)" class:on={reader.ruler} onclick={() => (reader.ruler = !reader.ruler)}><Icon name="ruler" /></button>
+  <select class="mode" aria-label="Page mode" value={app.settings.pageMode} onchange={(e) => { app.settings.pageMode = e.currentTarget.value as PageMode; app.saveSettings(); }}>
+    <option value="normal">Normal</option>
+    <option value="dark">Dark pages</option>
+    <option value="sepia">Sepia</option>
+  </select>
+{/snippet}
 
 <header class="toolbar">
   <div class="group">
@@ -82,16 +95,14 @@
     <span class="zoom">{Math.round(reader.scale * 100)}%</span>
     <button title="Zoom in (Ctrl +)" onclick={() => reader.zoomStep(1)}><Icon name="zoomIn" /></button>
     <button title="Fit width (Ctrl 0)" onclick={() => reader.fitWidth()}><Icon name="fitWidth" /></button>
-    <button title="Fit page (Ctrl 9)" onclick={() => reader.fitPage()}><Icon name="fitPage" /></button>
-    <button title="Fit text width (w)" aria-label="Fit text width" class:on={reader.fit === 'text'} onclick={() => reader.toggleTextWidth()}><Icon name="fitText" /></button>
     <button title="Find (/)" onclick={() => reader.search.show()}><Icon name="search" /></button>
-    <button title="Focus mode (f)" onclick={() => (reader.focus = true)}><Icon name="focus" /></button>
-    <button title="Reading ruler (r)" class:on={reader.ruler} onclick={() => (reader.ruler = !reader.ruler)}><Icon name="ruler" /></button>
-    <select class="mode" aria-label="Page mode" value={app.settings.pageMode} onchange={(e) => { app.settings.pageMode = e.currentTarget.value as PageMode; app.saveSettings(); }}>
-      <option value="normal">Normal</option>
-      <option value="dark">Dark pages</option>
-      <option value="sepia">Sepia</option>
-    </select>
+    <div class="view-inline">{@render viewControls()}</div>
+    <div class="menu-wrap view-more">
+      <button title="More view options" class:on={moreOpen} onclick={() => (moreOpen = !moreOpen)}><Icon name="more" /></button>
+      {#if moreOpen}
+        <div class="menu view-menu">{@render viewControls()}</div>
+      {/if}
+    </div>
     <span class="sep"></span>
     <button title="Notebook (N)" class:on={reader.study.rightOpen && reader.study.rightTab === 'notebook'} onclick={() => reader.study.showRight('notebook')}><Icon name="notebook" /></button>
     <button title="Flashcards (C)" class:on={reader.study.rightOpen && reader.study.rightTab === 'cards'} onclick={() => reader.study.showRight('cards')}><Icon name="card" /></button>
@@ -112,6 +123,7 @@
 
 <style>
   .toolbar {
+    container: toolbar / inline-size;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -123,11 +135,11 @@
   }
   .group { display: flex; align-items: center; gap: 2px; min-width: 0; }
   .center { flex: 1; justify-content: center; }
-  .title { font-weight: 600; margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+  .title { flex: 0 1 auto; min-width: 3em; font-weight: 600; margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
   .zoom { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
   .mode { font-size: 12px; padding: 3px 4px; margin-left: 4px; }
   .sep { width: 1px; height: 20px; background: var(--border); margin: 0 6px; }
-  button { padding: 5px; color: var(--text); }
+  button { padding: 5px; color: var(--text); flex-shrink: 0; }
   button.on { background: var(--accent-soft); color: var(--accent); }
   .swatch { width: 22px; height: 22px; padding: 0; margin: 0 1px; border-radius: 50%; background: var(--c); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border); }
   .swatch:hover:not(:disabled) { background: var(--c); transform: scale(1.08); }
@@ -147,6 +159,18 @@
     box-shadow: var(--pop-shadow);
   }
   .menu button { text-align: left; padding: 7px 10px; font-size: 13px; }
+  .view-inline { display: contents; }
+  .view-more { display: none; }
+  .view-menu { display: flex; align-items: center; gap: 2px; min-width: 0; }
+  .view-menu button { padding: 5px; }
+  @container toolbar (max-width: 1240px) {
+    .view-inline { display: none; }
+    .view-more { display: block; }
+  }
+  @container toolbar (max-width: 1060px) {
+    button { padding: 3px; }
+    .sep { margin: 0 3px; }
+  }
   .meanings {
     position: absolute;
     top: calc(100% + 8px);
