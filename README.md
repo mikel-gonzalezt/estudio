@@ -1,114 +1,86 @@
 # Estudio
 
-A PDF reader built for studying: highlights with meaning, notes linked to pages, and flashcards on a spaced-repetition schedule. It runs in the browser and installs as a PWA that opens PDFs straight from Explorer. Annotations are saved into the PDF itself, as standard annotations other readers show, and notes can live in an Obsidian-style vault folder. Cards, progress and settings are stored locally in IndexedDB.
+Estudio is a PDF reader for studying. You highlight in colours that mean something, keep a notebook whose notes link back to the page, and review flashcards on a spaced-repetition schedule. It is for students who learn from PDFs: class notes, papers and textbooks. It runs in the browser, installs as an app on Windows, and keeps everything on your own computer.
 
-The design and data model live in [docs/DESIGN.md](docs/DESIGN.md).
+**[Guía de uso completa (español)](docs/GUIA.md)**
 
-## Install on Windows
+![The reader with highlights, a sticky note and an area clip on the page, and the notebook open in Document mode beside it](docs/images/reader.png)
 
-Requires Node 20+. Run once, and again after pulling changes:
+| Flashcard review | Library and vault |
+| --- | --- |
+| ![A flashcard with its answer shown and the Again, Hard, Good and Easy buttons](docs/images/review.png) | ![The library with a vault's Files tree of folders, PDFs and notes](docs/images/library.png) |
+
+## Features
+
+**Read.** A fast viewer with outline, thumbnails and search. Fit text width (`w`) crops the margins. Dark and sepia pages, a focus mode and a reading ruler. Hovering a citation previews the reference, with **Open paper** or **Search Scholar**. Read aloud uses the voices installed in Windows.
+
+**Annotate.** Highlight, underline and strike out in six colours whose meanings you choose. A pressure-aware pen, sticky notes and area clips. Undo and redo for everything. Annotations are saved into the PDF itself, as standard annotations that other PDF readers show.
+
+**Take notes.** Each PDF has a notebook, edited like a document or as Markdown. Page links come from `Ctrl+L` or from typing `[[`. Notes hold images, figures clipped from the PDF, tables and formulas, which you write with a visual editor. The notebook can open in its own window. Notes are Markdown files, so they can live in a folder that Obsidian also opens.
+
+**Study.** Basic and cloze flashcards, scheduled with FSRS, the algorithm current Anki uses. Pinned figures stay on screen while you read on. A pomodoro timer and a reading timer per document.
+
+**Export.** Markdown with highlights and notes, the notebook alone as `.md`, the notebook as Word (`.docx`, with native equations) or as PDF, the annotated PDF, and a full JSON backup.
+
+## Install
+
+### From the web
+
+<!-- HOSTED_URL -->
+
+Open the address in Edge or Chrome and click **Install Estudio** at the top of the library. On Windows, Estudio then appears in the Start menu and under **Open with** for PDF files.
+
+On Android and iPad, Estudio reads, annotates and keeps notes, but it keeps everything inside the app. Those browsers can't grant access to folders or save into files, so vaults and saving into the PDF work on a computer only.
+
+### On a Windows PC, from source
+
+You need [Node.js](https://nodejs.org/) 20 or later. Clone or download this repository, open PowerShell in its folder, and run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
-This installs dependencies, builds the app, starts a small local server (`scripts/serve.mjs`, port 4173, hidden) unless one is already running, and opens `http://127.0.0.1:4173/` in Edge. The first time, click **Install Estudio** at the top of the library, or the install icon in the address bar. After that, open Estudio from the Start menu. The installed app:
+The script builds Estudio, starts a small local server on `127.0.0.1:4173` and opens it in Edge. Click **Install Estudio**. The installed app works offline, without the server. To update, pull and run the script again. [DEVELOPMENT.md](docs/DEVELOPMENT.md) explains each step.
 
-- appears in the Start menu and can be pinned to the taskbar,
-- is offered in Explorer under **Open with** for PDF files (you can make it the default PDF app in Windows settings),
-- works without the local server, because everything it needs is cached.
+## Privacy and security
 
-Edge creates the app's own **Estudio** shortcuts when you install it. Earlier versions of the script made launcher shortcuts with the same name; it now deletes those, and only those (shortcuts whose command runs `scripts\launch.ps1`). `scripts\launch.ps1` still works for starting the server and opening Estudio in an app window by hand. Your library lives in the browser profile under `http://127.0.0.1:4173`, so keep the port fixed. Run the install script again after pulling changes; the installed app switches to the new version the next time it shows the library.
+Estudio has no accounts, no telemetry and no server of its own. Once installed it works offline. The service worker caches the app, pdf.js and the fonts, so nothing is fetched from a CDN.
 
-## Saving into the PDF
+Estudio sends network requests only in these cases:
 
-When a PDF is opened from disk (Open with, Open PDF, drag and drop, or a vault), highlights, drawings, notes and area clips are written into that file a few seconds after each change and when you close it. The status bar shows **Saved to file**, **Saving…**, or **Unsaved (click to allow)** when the browser needs your permission to write; click it once. Nothing is lost meanwhile, because Estudio keeps its own copy until the file is written. If another app changed the annotations in the file, both sets are merged.
+- The browser fetches the app's own files from the address it was installed from, and checks that address for updates.
+- You click **Open paper** or **Search Scholar** in a citation preview, which opens `doi.org`, `arxiv.org`, the paper's URL or `scholar.google.com` in a new tab.
+- You click a web link in a PDF or in a note, which opens in a new tab.
+- A note contains an image by web address (`![](https://…)`). The preview and both editors load that image when the note is shown, without a click.
 
-## Pinned figures
+Read aloud uses only voices that run on the device. Edge's online voices are filtered out, so no text leaves the computer.
 
-Draw an area clip around a figure and press **Pin** (or `Alt+P`). The figure stays in a small panel at the bottom right of the page while you read on, so "see Figure 3" no longer means scrolling back. With several pinned, **Follow** shows the one nearest the page you are reading; the arrows step through them. Click the figure to go to its page (`Alt+Left` returns). Drag the panel by its header, resize it from its top-left corner, collapse it to a tab, or open it in its own window for a second monitor. `P` hides and shows it. To switch the feature off, run **Pinned figures: turn off** from the command palette (`Ctrl+K`).
+**PDFs.** pdf.js parses every PDF in a Web Worker. Estudio uses pdf.js 6.3, whose build contains no `eval` or `new Function`, so the `isEvalSupported` option no longer exists. Estudio never loads pdf.js's scripting sandbox, so JavaScript inside a PDF never runs.
 
-## Vaults
+**Files.** Estudio sees only the files you open and the folders you pick. It writes through the File System Access API, where the browser asks you to grant each file or folder. After a restart, a folder needs one **Allow access** click again. A PDF opened through the browser's plain file input can't be written to, so its annotations stay inside Estudio.
 
-**Open vault** turns a folder into a vault, like Obsidian. The Files tree, on the library and in the reader's left sidebar, shows its folders, PDFs and Markdown notes. Right-click (or F2 and Del) to rename and delete, drag to move, and use the tree's toolbar to add notes and folders or import PDFs. A PDF's notebook is a Markdown file whose frontmatter names the PDF (`estudio-doc:` and `pdf: "[[paper.pdf]]"`), and every page link written there names the PDF so Obsidian can follow it (`[[paper.pdf#page=3|p. 3]]`). Because the pairing is in the file, you can move or rename the note anywhere, even into another vault you have opened in Estudio (your Obsidian vault, say), and the PDF still finds it. New notebooks go next to their PDF by default; the notebook's ⋯ menu can send them to a folder of your choice instead, and can move a notebook kept inside Estudio into a vault. For a PDF outside any vault (Open with, Open PDF, drag and drop), the notebook header says **Saved inside Estudio · Save as file**. **Next to the PDF** asks once for access to the PDF's folder and moves the notebook and its images there. Later PDFs in that folder get their notebook beside them without asking. That folder is not a vault and does not appear in the vault list. A PDF opened through the plain file input can't have notes saved beside it, so the menu offers a vault folder or a notes download instead. Older `<name>.md` notebooks next to their PDF are picked up as before and get the frontmatter on their next save. Other properties you add to a notebook are kept. Notes open in the same editor; clicking a link such as `[[paper.pdf#page=3]]` in a note opens that PDF from the vault at page 3. A link names a file by name or by path; a bare name is looked up next to the note first, then anywhere in the vault.
+**Saving.** Every change goes to IndexedDB first. The PDF is then written through `createWritable()`, which Chromium stages in a temporary file and swaps in on `close()`, so a crash during a save leaves the old PDF intact. Before writing, Estudio reads the file again and merges annotations three ways against the last version both sides agreed on. The newer edit wins, an edit beats a deletion, and additions from both sides are kept, so annotations another app added are not overwritten.
 
-## Notes
+**Threat model.** The two untrusted inputs are PDFs and note files, for example a `.md` or a backup someone sent you. A malicious PDF meets pdf.js in a worker with no script execution, so the remaining risk is a bug in pdf.js or the browser. Keep Edge updated. In notes, the preview shows raw HTML as text instead of rendering it. A click on a link in the preview opens it in a new tab only when it is an `http` or `https` address, and does nothing otherwise. KaTeX runs with `trust` off, so a formula can't add links or HTML. Document mode turns HTML tags it recognises into its own nodes and keeps only the attributes those nodes define, so scripts and event handlers are dropped. A test note with `<script>`, `onerror`, `javascript:` links, an `<iframe>` and a KaTeX `\href` ran no script in any editor mode. A remote image in a note can tell its server that you opened the note, as a tracking pixel in an email does.
 
-Notebooks and notes are Markdown files, but you do not need to know Markdown. The switch in the notebook header chooses how you edit:
+## How it was built
 
-- **Document** (the default) looks like a word processor. Use the toolbar for text style, bold, italic, strikethrough, highlight, code, lists, checklists, quotes, page links, tables, images and formulas. The Markdown shortcuts still work if you type them (`# `, `- `, `1. `, `[ ] `, `**bold**`, `==highlight==`, `$x^2$`).
-- **Markdown** shows the source, with page links as chips, images below their line and formulas typeset while the cursor is elsewhere. **Format table** (Alt+Shift+F) lines up a table's pipes.
-
-Switching modes never changes the text, and a note you only read is never rewritten. When you edit in Document mode, only the paragraphs, lists or tables you touched are written again.
-
-- **Images.** Paste a screenshot or drop an image file into either mode. In a vault it is saved as `attachments/Pasted image <date>.png` beside the note, as Obsidian does; a notebook kept inside Estudio stores it in its database, and **Move notebook to a vault…** writes those images out as files. An area clip's **Send to notes** adds the clipped figure, drawn sharply from the PDF, with a link to its page. Obsidian's `![[image.png]]` embeds are shown too.
-- **Tables.** In Document mode, Tab and Shift+Tab move between cells, Enter in the last row adds a row, and the table toolbar adds or deletes rows and columns.
-- **Formulas.** `Ctrl+M` or the formula button opens a visual formula editor with an on-screen maths keyboard, so you do not need LaTeX. Click a formula to edit it.
-- **Printing.** The download menu's **Notes as PDF** opens the print dialog on a clean copy of the notes, with images, tables and formulas, and page links written as "p. 12". Choose **Save as PDF** there.
-
-## Read aloud
-
-The speaker button in the toolbar, or `l`, reads the document aloud from the selection, or from the top of the page on screen. Select text and choose **Read aloud from here**, or pick **Read aloud from a sentence I click** in the command palette and click a sentence. The sentence being read is marked on the page, and the page follows it, unless you scrolled away in the last few seconds. The bar at the bottom pauses, skips a sentence back or forward, stops, and sets the speed (0.75× to 2×) and the voice. Your voice is remembered for each language.
-
-Only voices installed in Windows are used, so it works offline and no text leaves your computer; Edge's "Online (Natural)" voices are never offered. Estudio picks a voice for the document's language (English or Spanish, from the PDF's metadata or its text). Add voices in Windows Settings › Time & language › Speech; Chrome and Edge list only the voices installed there, not older SAPI voices such as Zira. Page headers, page numbers, the arXiv margin stamp and bracketed citations like [13] are skipped. **Turn off read aloud** in the command palette hides all of it.
+Mikel González Tejero designed, directed, reviewed and tested Estudio. Claude agents (Anthropic), working through Claude Code, wrote most of the code. The session log, [docs/BITACORA.md](docs/BITACORA.md), records what was built, what was decided and why, and how each change was checked. The design and data model are in [docs/DESIGN.md](docs/DESIGN.md). 376 automated tests cover the pure modules, from the scheduler and the annotation merge to the notes format.
 
 ## Develop
-
-Requires Node 20+.
 
 ```sh
 npm install
 npm run dev        # http://localhost:5173
+npm test           # unit tests
+npm run build      # type check and production build into dist/
+npm run preview    # serve dist/ with the service worker
 ```
 
-Open a PDF with **Open PDF**, by dragging it onto the window, or from the recent-files library. `samples/attention.pdf` is a small test document.
+## Docs
 
-## Build and test
-
-```sh
-npm test           # Vitest unit tests for the pure modules
-npm run build      # type-check (svelte-check) and production build into dist/
-npm run preview    # serve dist/ locally, including the service worker
-```
-
-To install as an app, open the preview or a deployed build in Chrome or Edge and click **Install Estudio**.
-
-## Keys
-
-`Ctrl+K` opens the command palette, which lists every action with its shortcut.
-
-| Keys | Action |
-| --- | --- |
-| `j` / `k`, `J` / `K`, PgDn / PgUp | Scroll, next / previous page |
-| `g` | Go to page |
-| `Alt+Left` / `Alt+Right` | Back / forward after a jump |
-| `Ctrl +` / `Ctrl -`, `Ctrl+0`, `Ctrl+9`, Ctrl+wheel | Zoom, fit width, fit page |
-| `v` / `Esc`, `h`, `u`, `x`, `p`, `e`, `n`, `a` | Select, highlight, underline, strikethrough, pen, eraser, note, area clip |
-| `1` to `6` | Colour |
-| `Ctrl+Z` / `Ctrl+Y` | Undo / redo annotation edits |
-| `/` or `Ctrl+F` | Find in document |
-| `b`, `N`, `C`, `B` | Sidebar, notebook, flashcards, study pane |
-| `W` | Widen notebook / restore its width |
-| `Ctrl+L` (in the notebook) | Link the page on screen |
-| `[[` (in the notebook) | Link the current page, a section or an annotation |
-| `Ctrl+B`, `Ctrl+I`, `Ctrl+Shift+X`, `Ctrl+E`, `Ctrl+Shift+H` (in the notebook) | Bold, italic, strikethrough, inline code, `==highlight==`; pressing again removes it |
-| `Ctrl+Enter` (in the notebook) | Toggle a checkbox on the current line |
-| `Ctrl+M` (in the notebook) | Insert or edit a formula |
-| `Alt+Shift+F` (Markdown mode) | Line up the pipes of the table at the cursor |
-| `Tab` / `Shift+Tab` (in the notebook) | Indent / outdent list items |
-| Arrow keys on a pane handle | Resize the pane (Shift for bigger steps, double-click to reset) |
-| `P` | Show / hide the pinned figures panel |
-| `Alt+P` | Pin / unpin the selected area clip |
-| `R` | Review due cards |
-| `f`, `r` | Focus mode, reading ruler |
-| `l` | Read aloud; pause and resume while reading |
-
-## Dependencies
-
-Runtime: `pdfjs-dist`, `idb`, `pdf-lib` (in a worker when saving annotations into a file, and on demand for exports), `marked` (notebook preview), CodeMirror 6 (Markdown mode, loaded when the notebook first opens), TipTap with `@tiptap/markdown` (Document mode, loaded on first use), KaTeX (formulas, loaded when one is first shown) and MathLive (the formula editor, loaded when it first opens). The FSRS-5 scheduler is implemented in `src/lib/fsrs.ts` rather than pulled from `ts-fsrs`.
-
-## Layout
-
-- `src/lib/` holds framework-free modules: data types, geometry, FSRS scheduler, keyboard and command registry, IndexedDB access (`db.ts`), exporters.
-- `src/reader/` is the lazily loaded reader: pdf.js engine, virtualised viewer, tools, panes.
-- `src/components/` holds the library screen and shared UI.
+- [Guía de uso completa (español)](docs/GUIA.md) is the user guide.
+- [DEVELOPMENT.md](docs/DEVELOPMENT.md) covers building, the install script, the keyboard shortcuts, the source layout and the dependencies.
+- [DESIGN.md](docs/DESIGN.md) covers the design, the data model and how each feature works.
+- [NOTES-FORMAT.md](docs/NOTES-FORMAT.md) is the Markdown contract between the editors and the exporters.
+- [BITACORA.md](docs/BITACORA.md) is the session log of what was built and decided.
