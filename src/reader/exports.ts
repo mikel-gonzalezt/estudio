@@ -1,7 +1,7 @@
 import { mergeAnnotations } from '../lib/annmerge';
 import { app } from '../lib/app.svelte';
 import { download, safeName } from '../lib/download';
-import { exportMarkdown } from '../lib/export/markdown';
+import { exportMarkdown, exportNotes } from '../lib/export/markdown';
 import type { Reader } from './session.svelte';
 
 export function exportMarkdownFile(r: Reader) {
@@ -14,6 +14,10 @@ export function exportMarkdownFile(r: Reader) {
     exportedAt: new Date(),
   });
   download(md, `${safeName(r.doc.title)}.md`, 'text/markdown');
+}
+
+export function exportNotesFile(r: Reader) {
+  download(exportNotes(r.study.notebook.markdown), `${safeName(r.doc.title)} (notes).md`, 'text/markdown');
 }
 
 /** A copy of the PDF with the annotations inside. Annotations another app left in the file are kept. */

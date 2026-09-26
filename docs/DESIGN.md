@@ -138,6 +138,7 @@ Keyboard and discovery
 
 Export and safety
 - Export highlights + notes + notebook to Markdown (Obsidian-friendly).
+- Export the notebook alone ("Notes only (.md)"): its text without frontmatter, annotations or cards, with page links turned into plain references, `(p. 12)` or `Intro (p. 12)` for a labelled link (`exportNotes` in `src/lib/export/markdown.ts`).
 - Annotations are saved into the PDF itself when it was opened from disk (see Files, saving and identity), as real annotation objects that Acrobat, Zotero and others show. Export annotated PDF writes the same objects into a copy for files opened without a handle.
 - Full JSON backup and restore of the database.
 

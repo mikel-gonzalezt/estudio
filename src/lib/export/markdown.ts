@@ -1,4 +1,5 @@
 import { plainCloze } from '../cloze';
+import { splitFrontmatter } from '../frontmatter';
 import { parsePageLinks } from '../pagelink';
 import {
   annotationTop, KIND_LABEL, type Card, type ColorId, type DocRecord, type StoredAnnotation,
@@ -88,4 +89,10 @@ export function exportMarkdown(input: MarkdownInput): string {
     out.push('');
   }
   return out.join('\n');
+}
+
+/** Just the notebook's own text, readable anywhere: no frontmatter, and page links as `(p. N)`. */
+export function exportNotes(notebook: string): string {
+  const body = unlink(splitFrontmatter(notebook).body).trim();
+  return body ? `${body}\n` : '';
 }

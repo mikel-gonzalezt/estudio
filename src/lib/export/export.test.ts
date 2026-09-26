@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BackupError, makeBackup, parseBackup } from '../backup';
 import { newSrs } from '../fsrs';
 import { DEFAULT_MEANINGS, type AnnId, type Card, type CardId, type DocId, type StoredAnnotation } from '../types';
-import { exportMarkdown } from './markdown';
+import { exportMarkdown, exportNotes } from './markdown';
 
 const meta = (id: string, page: number) => ({ id: id as AnnId, docId: 'doc' as DocId, tags: [] as string[], createdAt: 0, updatedAt: 0, page });
 
@@ -55,5 +55,16 @@ describe('backup', () => {
     expect(() => parseBackup('{"format":"other"}')).toThrow(BackupError);
     const b = makeBackup({ docs: [], annotations: [], notebooks: [], cards: [] }, 0);
     expect(() => parseBackup(JSON.stringify({ ...b, annotations: [{ id: 1 }] }))).toThrow(/annotations\[0\]/);
+  });
+});
+
+describe('notes-only export', () => {
+  it('keeps only the notebook text, with page links as readable references', () => {
+    const nb = '---\nestudio-doc: x\npdf: "[[a.pdf]]"\n---\n# Notes\n\n[[p3]] first point\n> quote [[a.pdf#page=12|Intro]]\n- see [[p4|Method]] and [[b c.pdf#page=7]]\n\n';
+    expect(exportNotes(nb)).toBe('# Notes\n\n(p. 3) first point\n> quote Intro (p. 12)\n- see Method (p. 4) and (p. 7)\n');
+  });
+
+  it('is empty for an empty notebook', () => {
+    expect(exportNotes('  \n')).toBe('');
   });
 });
