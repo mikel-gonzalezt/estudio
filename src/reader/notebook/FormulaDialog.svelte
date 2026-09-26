@@ -87,6 +87,7 @@
 {/if}
 
 <style>
+  :global(body) { --keyboard-zindex: 1000; }
   .backdrop { position: fixed; inset: 0; z-index: 900; display: grid; place-items: start center; padding-top: 10vh; background: rgb(0 0 0 / 0.25); }
   .dialog { width: min(560px, calc(100vw - 24px)); display: grid; gap: 8px; padding: 14px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--pop-shadow); font-size: 13px; }
   p { margin: 0; }

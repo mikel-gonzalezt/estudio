@@ -192,6 +192,7 @@
   .surface :global(td p), .surface :global(th p) { margin: 0; }
   .surface :global(.selectedCell) { background: var(--accent-soft); }
   .surface :global(.doc-img) { max-height: 60vh; }
+  .surface :global(.doc-img-box.missing) { display: inline-block; padding: 2px 8px; font-size: 12px; color: var(--muted); border: 1px dashed var(--border); border-radius: 4px; }
   :global(.doc-link-menu) { position: fixed; z-index: 1000; }
   :global(.doc-link-menu ul) { margin: 0; padding: 0; list-style: none; overflow-y: auto; }
   :global(.doc-link-menu li) { cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

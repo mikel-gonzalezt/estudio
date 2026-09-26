@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import Icon from '../../components/Icon.svelte';
   import '../../styles/notes.css';
+  import { splitFrontmatter } from '../../lib/frontmatter';
   import { hydrateNotes } from '../../lib/hydrate';
   import { renderMarkdown } from '../../lib/notebook';
   import type { NotebookDoc } from './doc.svelte';
@@ -32,7 +33,7 @@
 
   type Mode = 'write' | 'both' | 'preview';
   let mode = $state<Mode>('write');
-  const html = $derived(renderMarkdown(doc.markdown));
+  const html = $derived(renderMarkdown(splitFrontmatter(doc.markdown).body));
 
   function hydrate(node: HTMLElement, html: string) {
     void hydrateNotes(node, doc.files);

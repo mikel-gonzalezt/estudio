@@ -158,21 +158,25 @@ export const BlockMath = Node.create<{ views: DocViews | null }>({
   },
 });
 
+/** An image node's view: the picture once its bytes are found, or a note saying which file is missing. */
 function imageView(views: () => DocViews | null, src: string, alt: string) {
+  const box = document.createElement('span');
+  box.className = 'doc-img-box';
   const img = document.createElement('img');
   img.alt = alt;
   img.className = 'doc-img';
+  box.append(img);
   const v = views();
   if (v) {
     void imageUrl(v.files(), src).then((url) => {
       if (url) img.src = url;
       else {
-        img.classList.add('missing');
-        img.alt = alt || `Missing image: ${src}`;
+        box.classList.add('missing');
+        box.textContent = `Image not found: ${src}`;
       }
     });
   }
-  return img;
+  return box;
 }
 
 /** `![alt](src "title")`, inline so a figure and its page link share a line. */
@@ -185,9 +189,9 @@ export const NoteImage = Image.extend<{ views: DocViews | null }>({
   },
   addNodeView() {
     return ({ node }) => {
-      const img = imageView(() => this.options.views, String(node.attrs.src ?? ''), String(node.attrs.alt ?? ''));
-      if (node.attrs.title) img.title = node.attrs.title;
-      return { dom: img };
+      const box = imageView(() => this.options.views, String(node.attrs.src ?? ''), String(node.attrs.alt ?? ''));
+      if (node.attrs.title) box.title = node.attrs.title;
+      return { dom: box };
     };
   },
 });
