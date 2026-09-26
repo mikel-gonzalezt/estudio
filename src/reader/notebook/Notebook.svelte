@@ -32,7 +32,13 @@
   const docEditorModule = () => (docEditor ??= loadDocEditor());
 
   type Mode = 'write' | 'both' | 'preview';
-  let mode = $state<Mode>('write');
+  /** The last choice; Document mode has no Split, as both halves would look the same, so it edits instead. */
+  let chosen = $state<Mode>('write');
+  const mode = $derived(editorMode === 'document' && chosen === 'both' ? 'write' : chosen);
+  const MODES: Record<EditorMode, [Mode, string][]> = {
+    markdown: [['write', 'Write'], ['both', 'Split'], ['preview', 'Preview']],
+    document: [['write', 'Edit'], ['preview', 'Read']],
+  };
   const html = $derived(renderMarkdown(splitFrontmatter(doc.markdown).body));
 
   function hydrate(node: HTMLElement, html: string) {
@@ -53,8 +59,8 @@
 <div class="notebook" data-mode={mode}>
   <div class="head">
     <div class="modes" role="tablist">
-      {#each [['write', 'Write'], ['both', 'Split'], ['preview', 'Preview']] as [m, label] (m)}
-        <button role="tab" aria-selected={mode === m} class:on={mode === m} onclick={() => (mode = m as Mode)}>{label}</button>
+      {#each MODES[editorMode] as [m, label] (m)}
+        <button role="tab" aria-selected={mode === m} class:on={mode === m} onclick={() => (chosen = m)} data-testid="view-{m}">{label}</button>
       {/each}
     </div>
     <div class="modes kind" role="radiogroup" aria-label="Editing mode">
