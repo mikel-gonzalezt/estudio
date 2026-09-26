@@ -33,11 +33,9 @@ const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
-const isRemote = (src: string) => /^(https?:|data:)/i.test(src);
-
-/** Local sources are resolved by the caller (see `hydrate.ts`); only remote ones load directly. */
+/** Sources are resolved by the caller (see `hydrate.ts`), which decides whether each may load. */
 const imgTag = (src: string, alt: string, title?: string | null) =>
-  `<img class="md-img" ${isRemote(src) ? `src="${escapeHtml(src)}"` : `data-src="${escapeHtml(src)}"`} alt="${escapeHtml(alt)}"${title ? ` title="${escapeHtml(title)}"` : ''}>`;
+  `<img class="md-img" data-src="${escapeHtml(src)}" alt="${escapeHtml(alt)}"${title ? ` title="${escapeHtml(title)}"` : ''}>`;
 
 const mathTag = (latex: string, display: boolean) =>
   display ? `<div class="math math-display" data-latex="${escapeHtml(latex)}">${escapeHtml(latex)}</div>` : `<span class="math" data-latex="${escapeHtml(latex)}">${escapeHtml(latex)}</span>`;

@@ -6,7 +6,7 @@ import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Table, TableCell, TableHeader, TableKit } from '@tiptap/extension-table';
 import StarterKit from '@tiptap/starter-kit';
 import type { NoteFiles } from '../../../lib/attachments';
-import { imageUrl } from '../../../lib/attachments';
+import { showNoteImage } from '../../../lib/hydrate';
 import { renderMath } from '../../../lib/katex';
 import { formatTable } from '../../../lib/mdtable';
 import { blockMathAt, formatBlockMath, formatInlineMath, inlineMathAt } from '../../../lib/mathsyntax';
@@ -169,16 +169,17 @@ function imageView(views: () => DocViews | null, src: string, alt: string) {
   box.append(img);
   const v = views();
   if (v) {
-    void imageUrl(v.files(), src).then((url) => {
-      if (url) img.src = url;
-      else {
-        box.classList.add('missing');
-        box.textContent = `Image not found: ${src}`;
-      }
+    void showNoteImage(img, src, v.files()).then((shown) => {
+      if (shown) return;
+      box.classList.add('missing');
+      box.textContent = `Image not found: ${src}`;
     });
   }
   return box;
 }
+
+/** Clicks on a remote image's Load button are the button's, not the editor's. */
+const stopEvent = (e: Event) => e.target instanceof Element && e.target.closest('.remote-img') !== null;
 
 /** `![alt](src "title")`, inline so a figure and its page link share a line. */
 export const NoteImage = Image.extend<{ views: DocViews | null }>({
@@ -192,7 +193,7 @@ export const NoteImage = Image.extend<{ views: DocViews | null }>({
     return ({ node }) => {
       const box = imageView(() => this.options.views, String(node.attrs.src ?? ''), String(node.attrs.alt ?? ''));
       if (node.attrs.title) box.title = node.attrs.title;
-      return { dom: box };
+      return { dom: box, stopEvent };
     };
   },
 });
@@ -220,7 +221,7 @@ export const Embed = Node.create<{ views: DocViews | null }>({
   parseMarkdown: (token) => ({ type: 'embed', attrs: { target: token.target, raw: token.raw } }),
   renderMarkdown: (node: JSONContent) => String(node.attrs?.raw ?? ''),
   addNodeView() {
-    return ({ node }) => ({ dom: imageView(() => this.options.views, String(node.attrs.target), '') });
+    return ({ node }) => ({ dom: imageView(() => this.options.views, String(node.attrs.target), ''), stopEvent });
   },
 });
 

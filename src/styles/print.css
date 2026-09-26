@@ -17,6 +17,7 @@
   }
   #print-notes .print-title { font-size: 20pt; margin: 0 0 0.6em; }
   #print-notes img { max-height: 180mm; break-inside: avoid; }
+  #print-notes .remote-img-load { display: none; }
   #print-notes table, #print-notes pre, #print-notes blockquote, #print-notes .math-display { break-inside: avoid; }
   #print-notes h1, #print-notes h2, #print-notes h3 { break-after: avoid; }
   #print-notes .plink-text { color: var(--muted); font-size: 0.9em; white-space: nowrap; }

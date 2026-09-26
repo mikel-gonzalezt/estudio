@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { renderMarkdown } from './notebook';
 
 describe('preview: images, maths and tables', () => {
-  it('leaves local image sources for the resolver and loads remote ones', () => {
+  it('leaves every image source for the resolver, so none loads by itself', () => {
     const html = renderMarkdown('![Figure](attachments/Pasted%20image%201.png "T") ![x](https://e.org/a.png)');
     expect(html).toContain('data-src="attachments/Pasted%20image%201.png"');
     expect(html).toContain('alt="Figure"');
-    expect(html).toContain('src="https://e.org/a.png"');
+    expect(html).toContain('data-src="https://e.org/a.png"');
+    expect(html).not.toMatch(/\ssrc=/);
   });
 
   it('renders Obsidian image embeds and leaves other embeds as text', () => {

@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { describe, expect, it } from 'vitest';
+import { loadRemote } from '../attachments';
 import { DOCX_MIME, notesToDocx, parseNotes, type FormulaRenderer, type ImageResolver, type ResolvedImage } from './docx';
 
 const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
@@ -164,6 +165,16 @@ describe('notesToDocx', () => {
     const xml = await body('![x](missing.png)');
     expect(xml).toMatch(/<w:i\/>[^]*?>\[image not found: missing.png\]<\/w:t>/);
     expect(xml).not.toContain('<w:drawing>');
+  });
+
+  it('writes a remote image as its placeholder until the user loaded it', async () => {
+    const src = 'https://img.example.org/fig.png';
+    images[src] = png(100, 50);
+    const before = await body(`![x](${src})`);
+    expect(before).toMatch(/<w:i\/>[^]*?>\[Remote image: img.example.org\]<\/w:t>/);
+    expect(before).not.toContain('<w:drawing>');
+    loadRemote(src);
+    expect(await body(`![x](${src})`)).toContain('<w:drawing>');
   });
 
   it('writes a formula that maps to OMML as a native Word equation', async () => {

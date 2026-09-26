@@ -95,11 +95,49 @@ export interface NoteFiles {
   resolve: ImageResolver;
 }
 
-const isRemote = (src: string) => /^(https?:|data:|blob:)/i.test(src);
+/**
+ * Where an image a note references comes from, which decides whether it may load. `local` images
+ * are read through the note's files; `inline` ones (image `data:` URLs and `blob:` URLs) involve no
+ * network; `remote` ones wait for a click, as they can tell their server the note was opened;
+ * anything else (other `data:` types, `javascript:`, `file:`) never loads.
+ */
+export type ImageSource = { kind: 'local' } | { kind: 'inline' } | { kind: 'remote'; host: string } | { kind: 'blocked' };
 
-async function remote(src: string): Promise<Blob | null> {
+const DATA_IMAGE = /^data:image\/(png|jpe?g|gif|webp|avif|bmp|svg\+xml|x-icon|vnd\.microsoft\.icon)[;,]/i;
+
+export function imageSource(src: string): ImageSource {
+  if (src.startsWith(ATTACHMENT_SCHEME)) return { kind: 'local' };
+  const scheme = /^([a-z][a-z0-9+.-]+):/i.exec(src)?.[1]?.toLowerCase();
+  if (scheme === undefined) return { kind: 'local' };
+  if (scheme === 'http' || scheme === 'https') {
+    try {
+      return { kind: 'remote', host: new URL(src).host };
+    } catch {
+      return { kind: 'blocked' };
+    }
+  }
+  if (scheme === 'blob' || (scheme === 'data' && DATA_IMAGE.test(src))) return { kind: 'inline' };
+  return { kind: 'blocked' };
+}
+
+/** Remote images the user chose to load in this session. */
+const loadedRemote = new Set<string>();
+
+export const remoteLoaded = (src: string) => loadedRemote.has(src);
+export const loadRemote = (src: string) => void loadedRemote.add(src);
+
+/** What stands in for a remote image that was not loaded, in the preview, the editors and exports. */
+export const remoteImageLabel = (host: string) => `Remote image: ${host}`;
+
+/** Whether `src` may be fetched as it is, with no click. */
+export function mayFetch(src: string): boolean {
+  const s = imageSource(src);
+  return s.kind === 'inline' || (s.kind === 'remote' && remoteLoaded(src));
+}
+
+async function fetched(src: string): Promise<Blob | null> {
   try {
-    const r = await fetch(src);
+    const r = await fetch(src, { credentials: 'omit', referrerPolicy: 'no-referrer' });
     return r.ok ? await r.blob() : null;
   } catch {
     return null;
@@ -122,7 +160,10 @@ async function resolved(blob: Blob | null): Promise<ResolvedImage | null> {
 }
 
 function withResolve(save: NoteFiles['save'], local: (src: string) => Promise<Blob | null>): NoteFiles {
-  const blob = (src: string) => (isRemote(src) ? remote(src) : local(src));
+  const blob = async (src: string) => {
+    if (imageSource(src).kind === 'local') return local(src);
+    return mayFetch(src) ? fetched(src) : null;
+  };
   return { save, blob, resolve: async (src) => resolved(await blob(src)) };
 }
 
@@ -197,9 +238,10 @@ export function vaultFiles(where: () => { root: Dir; notePath: VaultPath; shallo
 
 const urls = new WeakMap<NoteFiles, Map<string, Promise<string | null>>>();
 
-/** An object URL for showing `src`, cached per note. */
-export function imageUrl(files: NoteFiles, src: string): Promise<string | null> {
-  if (isRemote(src)) return Promise.resolve(src);
+/** A URL for showing `src`: an object URL for a local image, cached per note; null when it may not load. */
+export function imageUrl(files: NoteFiles | null, src: string): Promise<string | null> {
+  if (imageSource(src).kind !== 'local') return Promise.resolve(mayFetch(src) ? src : null);
+  if (!files) return Promise.resolve(null);
   let m = urls.get(files);
   if (!m) urls.set(files, (m = new Map()));
   let p = m.get(src);

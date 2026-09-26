@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  candidatePaths, encodeRef, figureMarkdown, imageRefs, normalisePath, pastedImageName, refFrom, rewriteAttachmentRefs,
+  candidatePaths, encodeRef, figureMarkdown, imageRefs, imageSource, loadRemote, mayFetch, normalisePath, pastedImageName, refFrom,
+  remoteImageLabel, rewriteAttachmentRefs,
 } from './attachments';
 
 describe('names and references', () => {
@@ -55,5 +56,41 @@ describe('resolution order', () => {
   it('normalises dot segments', () => {
     expect(normalisePath('a/./b/../c')).toBe('a/c');
     expect(normalisePath('../x')).toBeNull();
+  });
+});
+
+describe('which images may load', () => {
+  it.each([
+    ['attachments/a.png', 'local'],
+    ['estudio-attachment:abc', 'local'],
+    ['C:/pics/a.png', 'local'],
+    ['data:image/png;base64,iVBOR', 'inline'],
+    ['DATA:image/svg+xml,<svg/>', 'inline'],
+    ['blob:http://127.0.0.1:4173/uuid', 'inline'],
+    ['https://tracker.example/p.gif', 'remote'],
+    ['HTTP://tracker.example/p.gif', 'remote'],
+    ['data:text/html,<script>alert(1)</script>', 'blocked'],
+    ['data:application/pdf;base64,JVBER', 'blocked'],
+    ['javascript:alert(1)', 'blocked'],
+    ['file:///C:/a.png', 'blocked'],
+    ['ftp://example.org/a.png', 'blocked'],
+  ])('%s is %s', (src, kind) => {
+    expect(imageSource(src).kind).toBe(kind);
+  });
+
+  it('names the host of a remote image', () => {
+    expect(imageSource('https://img.example.org:8443/a.png?u=me')).toEqual({ kind: 'remote', host: 'img.example.org:8443' });
+    expect(remoteImageLabel('img.example.org')).toBe('Remote image: img.example.org');
+  });
+
+  it('fetches a remote image only once the user loaded it', () => {
+    const src = 'https://tracker.example/once.gif';
+    expect(mayFetch(src)).toBe(false);
+    loadRemote(src);
+    expect(mayFetch(src)).toBe(true);
+    expect(mayFetch('https://tracker.example/other.gif')).toBe(false);
+    expect(mayFetch('data:image/png;base64,iVBOR')).toBe(true);
+    expect(mayFetch('data:text/html,x')).toBe(false);
+    expect(mayFetch('attachments/a.png')).toBe(false);
   });
 });

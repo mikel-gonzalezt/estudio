@@ -29,5 +29,7 @@
 .notes-html th { background: var(--surface-2); font-weight: 600; }
 .notes-html img { max-width: 100%; height: auto; border-radius: 4px; vertical-align: middle; }
 .notes-html img.missing { display: inline-block; min-width: 120px; min-height: 24px; padding: 4px 8px; font-size: 12px; color: var(--muted); border: 1px dashed var(--border); }
+.remote-img { display: inline-block; padding: 4px 8px; font-size: 12px; color: var(--muted); border: 1px dashed var(--border); border-radius: 4px; user-select: none; }
+.remote-img button { font: inherit; color: var(--accent); padding: 0 2px; text-decoration: underline; cursor: pointer; }
 .notes-html .math-display { display: block; margin: 0.6em 0; text-align: center; overflow-x: auto; }
 .notes-html .katex { font-size: 1.08em; }

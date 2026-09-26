@@ -1,7 +1,8 @@
 import { EditorSelection, StateField, type EditorState, type Extension, type Range } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import { Decoration, EditorView, WidgetType, type Command, type DecorationSet } from '@codemirror/view';
-import { imageRefs, imageUrl, type NoteFiles } from '../../lib/attachments';
+import { imageRefs, type NoteFiles } from '../../lib/attachments';
+import { showNoteImage } from '../../lib/hydrate';
 import { renderMath } from '../../lib/katex';
 import { findMath, formatBlockMath, formatInlineMath, type MathSpan } from '../../lib/mathsyntax';
 import { formatTable, tableAround } from '../../lib/mdtable';
@@ -23,9 +24,8 @@ class ImageWidget extends WidgetType {
     const img = document.createElement('img');
     img.alt = '';
     box.append(img);
-    void imageUrl(this.files(), this.src).then((url) => {
-      if (url) img.src = url;
-      else box.textContent = `Image not found: ${this.src}`;
+    void showNoteImage(img, this.src, this.files()).then((shown) => {
+      if (!shown) box.textContent = `Image not found: ${this.src}`;
     });
     return box;
   }

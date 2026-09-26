@@ -34,7 +34,7 @@ import { renderFormulaPng } from './formulapng';
 import { latexToOmml, type XmlNode } from './omml';
 
 /** The image contract of `docs/NOTES-FORMAT.md`; `src/lib/attachments.ts` owns it once it exists. */
-import type { ImageResolver, ResolvedImage } from '../attachments';
+import { imageSource, remoteImageLabel, remoteLoaded, type ImageResolver, type ResolvedImage } from '../attachments';
 export type { ImageResolver, ResolvedImage };
 
 /** A picture of a formula Word cannot hold as an equation; width and height are its display size in px. */
@@ -247,6 +247,8 @@ class Writer {
   }
 
   async #image(src: string, alt: string, ctx: Ctx): Promise<ParagraphChild[]> {
+    const source = imageSource(src);
+    if (source.kind === 'remote' && !remoteLoaded(src)) return this.#text(`[${remoteImageLabel(source.host)}]`, { italics: true });
     const img = await this.resolveImage(src).catch(() => null);
     if (!img) return this.#text(`[image not found: ${src}]`, { italics: true });
     const type = IMAGE_TYPES[img.mime];
