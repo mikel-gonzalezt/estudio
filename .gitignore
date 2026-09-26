@@ -4,3 +4,4 @@ dev-dist
 *.local
 .vite
 .playwright-mcp
+.claude/
