@@ -119,7 +119,7 @@ const isBlank = (n: PMNode) => n.type.name === 'paragraph' && n.childCount === 0
 function findBlock(blocks: readonly Block[], j: number, kids: readonly PMNode[], i: number): number {
   for (let k = j; k < blocks.length; k++) {
     const b = blocks[k]!;
-    if (b.nodes.length && b.nodes.every((n, x) => kids[i + x]?.eq(n))) return k;
+    if (b.nodes.length && b.nodes.every((n, x) => kids[i + x] === n || kids[i + x]?.eq(n))) return k;
   }
   return -1;
 }
