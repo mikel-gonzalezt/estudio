@@ -64,6 +64,11 @@ describe('notes-only export', () => {
     expect(exportNotes(nb)).toBe('# Notes\n\n(p. 3) first point\n> quote Intro (p. 12)\n- see Method (p. 4) and (p. 7)\n');
   });
 
+  it('keeps image references, tables and maths as written', () => {
+    const nb = '![Figure](attachments/Pasted%20image%201.png) [[p4]]\n\n![[diagram.png]]\n\n| a | b |\n|---|---|\n| $x$ | 2 |\n\n$$\n\\int x\n$$\n';
+    expect(exportNotes(nb)).toBe('![Figure](attachments/Pasted%20image%201.png) (p. 4)\n\n![[diagram.png]]\n\n| a | b |\n|---|---|\n| $x$ | 2 |\n\n$$\n\\int x\n$$\n');
+  });
+
   it('is empty for an empty notebook', () => {
     expect(exportNotes('  \n')).toBe('');
   });

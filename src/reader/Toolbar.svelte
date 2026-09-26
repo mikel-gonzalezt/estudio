@@ -4,7 +4,7 @@
   import { COLOR_HEX, COLOR_IDS, DEFAULT_MEANINGS, type PageMode } from '../lib/types';
   import type { Reader } from './session.svelte';
   import { TOOL_IDS, TOOLS } from './tools';
-  import { exportMarkdownFile, exportNotesFile, exportPdfFile } from './exports';
+  import { exportMarkdownFile, exportNotesFile, exportPdfFile, printNotesFile } from './exports';
   import { downloadBackup } from '../lib/backupio';
 
   let { reader }: { reader: Reader } = $props();
@@ -112,6 +112,7 @@
         <div class="menu" data-testid="export-menu">
           <button onclick={() => run(() => exportMarkdownFile(reader))}>Markdown (highlights, notes, notebook)</button>
           <button onclick={() => run(() => exportNotesFile(reader))} data-testid="export-notes">Notes only (.md)</button>
+          <button onclick={() => run(() => void printNotesFile(reader))} data-testid="export-notes-pdf">Notes as PDF</button>
           <button onclick={() => run(() => exportPdfFile(reader))}>Annotated PDF</button>
           <button onclick={() => run(downloadBackup)}>Full backup (JSON)</button>
         </div>

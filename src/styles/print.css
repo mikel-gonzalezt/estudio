@@ -1,0 +1,25 @@
+#print-notes { display: none; }
+
+@media print {
+  @page { margin: 18mm 16mm; }
+  body.printing-notes > :not(#print-notes) { display: none !important; }
+  html:has(body.printing-notes), body.printing-notes { background: #fff; overflow: visible; height: auto; }
+  #print-notes {
+    display: block;
+    --text: #111;
+    --muted: #555;
+    --border: #bbb;
+    --surface-2: #f3f3f3;
+    --accent: #1f5446;
+    --accent-soft: #e7f0ec;
+    color: var(--text);
+    font: 11pt/1.55 var(--font);
+  }
+  #print-notes .print-title { font-size: 20pt; margin: 0 0 0.6em; }
+  #print-notes img { max-height: 180mm; break-inside: avoid; }
+  #print-notes table, #print-notes pre, #print-notes blockquote, #print-notes .math-display { break-inside: avoid; }
+  #print-notes h1, #print-notes h2, #print-notes h3 { break-after: avoid; }
+  #print-notes .plink-text { color: var(--muted); font-size: 0.9em; white-space: nowrap; }
+  #print-notes input[type='checkbox'] { margin: 0 0.4em 0 0; }
+  #print-notes li:has(> input[type='checkbox']) { list-style: none; margin-left: -1.2em; }
+}

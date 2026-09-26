@@ -3,7 +3,7 @@ import type { Command } from '../lib/registry';
 import { COLOR_IDS, type PageMode } from '../lib/types';
 import type { Reader } from './session.svelte';
 import { TOOL_IDS, TOOLS } from './tools';
-import { exportMarkdownFile, exportPdfFile } from './exports';
+import { exportMarkdownFile, exportPdfFile, printNotesFile } from './exports';
 import { downloadBackup } from '../lib/backupio';
 
 const focusGoto = () => {
@@ -92,6 +92,7 @@ export function readerCommands(r: Reader, ui: ReaderUi): Command[] {
     { id: 'view.pageSepia', title: 'Page mode: sepia', group: 'View', run: () => setPageMode('sepia') },
     { id: 'export.markdown', title: 'Export highlights, notes and notebook to Markdown', group: 'Export', run: () => exportMarkdownFile(r) },
     { id: 'export.pdf', title: 'Export annotated PDF', group: 'Export', run: () => void exportPdfFile(r) },
+    { id: 'export.notesPdf', title: 'Print notes / save notes as PDF', group: 'Export', run: () => void printNotesFile(r) },
     { id: 'export.backup', title: 'Download full JSON backup', group: 'Export', run: () => void downloadBackup() },
     { id: 'app.library', title: 'Close document (back to library)', group: 'App', run: () => app.close() },
   ];
