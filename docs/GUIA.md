@@ -46,7 +46,7 @@ Sirve para cualquier ordenador, tablet o móvil. La dirección web de Estudio es
 
 **<https://mikel-gonzalezt.github.io/estudio/>**
 
-1. Abre esa dirección en Edge o en Chrome.
+1. Abre esa dirección en Edge o en Chrome. **En un PC con Windows, usa Edge**: si haces de Estudio tu lector de PDF predeterminado, con Edge los archivos PDF muestran el icono de Estudio; con Chrome aparecen en blanco.
 2. Pulsa **Install Estudio**, arriba en la pantalla de inicio.
 3. Si no ves ese botón, abre el menú del navegador (los tres puntos de arriba a la derecha) y busca **Aplicaciones › Instalar este sitio como una aplicación** en Edge, o **Instalar Estudio** en Chrome.
 

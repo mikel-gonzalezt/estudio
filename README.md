@@ -28,7 +28,7 @@ Estudio is a PDF reader for studying. You highlight in colours that mean somethi
 
 Estudio is at **<https://mikel-gonzalezt.github.io/estudio/>**.
 
-1. Open the address in Edge or Chrome.
+1. Open the address in Edge or Chrome. On Windows, use **Edge**: it gives PDF files the Estudio icon when Estudio is the default PDF app, while Chrome leaves them blank.
 2. Click **Install Estudio** at the top of the library. If the button is missing, use the install icon in the address bar.
 
 On Windows, Estudio then appears in the Start menu and under **Open with** for PDF files. A copy installed from the web keeps its own library, apart from a copy installed from source, because the browser keeps each address's storage separate.
