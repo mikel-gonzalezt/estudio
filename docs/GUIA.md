@@ -417,6 +417,9 @@ Después abre Estudio como siempre. La próxima vez que muestre la pantalla de i
 **No veo el botón "Install Estudio".**
 El botón solo aparece mientras el navegador permite instalar. Si Estudio ya está instalado, no aparece: búscalo en el menú Inicio. Si no está instalado, recarga la página con `Ctrl+Mayús+R`, o usa el menú de Edge: **Aplicaciones › Instalar este sitio como una aplicación**.
 
+**Los archivos PDF aparecen sin icono.**
+Pasa si instalaste Estudio con Chrome y lo pusiste como lector predeterminado: Chrome no les da icono a los PDF. Haz una copia de seguridad (**Backup**), instala Estudio desde Edge, restaura la copia (**Restore**), vuelve a elegirlo como lector predeterminado y desinstala la copia de Chrome.
+
 **Me pide permiso para guardar ("Unsaved (click to allow)").**
 Es normal. El navegador pide permiso la primera vez que Estudio escribe en un archivo, y otra vez después de reiniciar. Haz clic en el aviso y acepta. Tus cambios no se pierden mientras tanto, porque Estudio guarda su propia copia.
 
