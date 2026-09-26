@@ -84,9 +84,13 @@ export function startsParagraph(lineBefore: string, cursorAtLineEnd: boolean): b
   return cursorAtLineEnd && t !== '' && !t.startsWith('>');
 }
 
-/** Only typed text counts as a first keystroke; paste, drop, undo and redo never auto-link. */
-export function isFirstKeystroke(docLengthBefore: number, userEvent: string | undefined): boolean {
-  return docLengthBefore === 0 && (userEvent === 'input.type' || !!userEvent?.startsWith('input.type.'));
+/**
+ * Only typed text counts as a first keystroke; paste, drop, undo and redo never auto-link, and
+ * neither does a character that starts Markdown markup (`#`, `-`, `>`, `1.`…), which would stop
+ * working behind a link.
+ */
+export function isFirstKeystroke(docLengthBefore: number, userEvent: string | undefined, typed = ''): boolean {
+  return docLengthBefore === 0 && (userEvent === 'input.type' || !!userEvent?.startsWith('input.type.')) && !/^[#>*+\-\d[`|$]/.test(typed);
 }
 
 /** Where and what to insert so `block` lands on its own lines at `pos`. */

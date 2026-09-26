@@ -94,6 +94,8 @@ describe('auto page links', () => {
     expect(isFirstKeystroke(0, 'input.type.compose')).toBe(true);
     expect(isFirstKeystroke(3, 'input.type')).toBe(false);
     for (const e of ['input.paste', 'input.drop', 'undo', 'redo', undefined]) expect(isFirstKeystroke(0, e)).toBe(false);
+    for (const ch of ['#', '-', '>', '1', '[', '*', '$']) expect(isFirstKeystroke(0, 'input.type', ch)).toBe(false);
+    expect(isFirstKeystroke(0, 'input.type', 'T')).toBe(true);
   });
 });
 

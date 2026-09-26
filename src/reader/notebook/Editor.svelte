@@ -1,17 +1,22 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { NotebookEditor } from './cm';
+  import type { createEditor } from './cm';
   import type { NotebookDoc } from './doc.svelte';
   import type { NotebookHost } from './host.svelte';
 
   let { doc, host, autoLinks, autofocus = false }: { doc: NotebookDoc; host: NotebookHost; autoLinks: boolean; autofocus?: boolean } = $props();
 
   let el: HTMLDivElement;
-  let editor = $state.raw<NotebookEditor | null>(null);
+  let editor = $state.raw<ReturnType<typeof createEditor> | null>(null);
+
+  /** Lines up the pipes of the table around the cursor. */
+  export function formatTable(): boolean {
+    return editor?.formatTable() ?? false;
+  }
   let failed = $state('');
 
   onMount(() => {
-    let ed: NotebookEditor | null = null;
+    let ed: ReturnType<typeof createEditor> | null = null;
     let dead = false;
     import('./cm').then(({ createEditor }) => {
       if (dead) return;
@@ -19,6 +24,7 @@
         host,
         pdfName: () => doc.pdfName,
         autoLinks: () => autoLinks,
+        files: () => doc.files,
         onChange: (t) => doc.edit(t),
         onBlur: () => void doc.flush(),
       });
@@ -68,6 +74,12 @@
     vertical-align: 1px;
   }
   .cm-host :global(.cm-plink:hover) { background: var(--accent); color: var(--accent-text); }
+  .cm-host :global(.cm-md-image) { padding: 4px 12px; }
+  .cm-host :global(.cm-md-image img) { max-width: 100%; max-height: 320px; border-radius: 4px; display: block; }
+  .cm-host :global(.cm-md-math) { cursor: pointer; }
+  .cm-host :global(.cm-md-math:hover) { background: var(--accent-soft); border-radius: 3px; }
+  .cm-host :global(.cm-md-math-block) { display: block; text-align: center; padding: 4px 12px; }
+  .cm-host :global(.math-error) { font-family: var(--mono); color: var(--danger); }
   :global(.cm-tooltip.cm-tooltip-autocomplete) {
     background: var(--surface);
     color: var(--text);

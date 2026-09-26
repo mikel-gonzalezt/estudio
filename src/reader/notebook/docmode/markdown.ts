@@ -23,8 +23,8 @@ export class DocMarkdown {
   readonly schema: Schema;
   readonly #md: MarkdownManager;
 
-  constructor(extensions: AnyExtension[]) {
-    this.schema = getSchema(extensions);
+  constructor(extensions: AnyExtension[], schema?: Schema) {
+    this.schema = schema ?? getSchema(extensions);
     this.#md = new MarkdownManager({
       marked: new Marked() as never,
       markedOptions: { gfm: true, breaks: true },

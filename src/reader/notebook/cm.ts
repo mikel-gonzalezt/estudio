@@ -10,24 +10,12 @@ import { quoteBlock, QUOTE_MIME, type QuoteDrag } from '../../lib/notebook';
 import {
   autoLinkInsert, blockInsertion, chipText, formatPageLink, isFirstKeystroke, parsePageLinks, startsParagraph, type LinkTarget,
 } from '../../lib/pagelink';
-import type { NotebookHost } from './host.svelte';
+import { imageMarkdown } from '../../lib/attachments';
+import { formatTableCommand, formulaCommand, noteWidgets } from './cmwidgets';
+import { GROUP_NAMES, imageFiles, LINK_QUERY, linkOptions, type EditorHooks, type LinkGroup, type NotebookEditor } from './links';
 import { continueMarkup, markdownEditing } from './mdediting';
 
-export interface EditorHooks {
-  host: NotebookHost;
-  /** Set for vault notebooks, whose links name the PDF; read on each use, as a notebook can move into a vault. */
-  pdfName: () => string | undefined;
-  autoLinks: () => boolean;
-  onChange: (text: string) => void;
-  onBlur: () => void;
-}
-
-export interface NotebookEditor {
-  /** Replaces the text with one that changed elsewhere, keeping the cursor where the texts agree. */
-  setText(text: string): void;
-  focus(): void;
-  destroy(): void;
-}
+export type { EditorHooks, NotebookEditor } from './links';
 
 class ChipWidget extends WidgetType {
   constructor(readonly target: LinkTarget, readonly text: string) {
@@ -68,8 +56,6 @@ const chips = StateField.define<DecorationSet>({
   provide: (f) => [EditorView.decorations.from(f), EditorView.atomicRanges.of((v) => v.state.field(f))],
 });
 
-const excerpt = (s: string, max = 70) => (s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s);
-
 /** Replaces `[[query` (and a `]]` right after the cursor) with the finished link. */
 const applyLink = (pdfName: string | undefined, page: number, label?: string) => (view: EditorView, _c: Completion, from: number, to: number) => {
   const end = view.state.sliceDoc(to, to + 2) === ']]' ? to + 2 : to;
@@ -77,31 +63,16 @@ const applyLink = (pdfName: string | undefined, page: number, label?: string) =>
   view.dispatch({ changes: { from, to: end, insert }, selection: { anchor: from + insert.length }, userEvent: 'input.complete' });
 };
 
-const GROUPS = {
-  page: { name: 'Page', rank: 0 },
-  section: { name: 'Sections', rank: 1 },
-  annotation: { name: 'Annotations', rank: 2 },
-};
+const SECTIONS = Object.fromEntries(Object.entries(GROUP_NAMES).map(([k, name], rank) => [k, { name, rank }])) as Record<LinkGroup, { name: string; rank: number }>;
 
-function linkCompletions(host: NotebookHost, linkName: () => string | undefined) {
+function linkCompletions(hooks: EditorHooks) {
   return (ctx: CompletionContext): CompletionResult | null => {
-    const m = ctx.matchBefore(/\[\[[^[\]|\n]*/);
+    const m = ctx.matchBefore(LINK_QUERY);
     if (!m) return null;
-    const q = m.text.slice(2).trim().toLowerCase();
-    const { page, sections, annotations } = host.context;
-    const pdfName = linkName();
-    const matches = (s: string) => !q || s.toLowerCase().includes(q);
-    const options: Completion[] = [
-      ...(page === null ? [] : [{ label: `Current page (p. ${page})`, apply: applyLink(pdfName, page), section: GROUPS.page, type: 'page' }]),
-      ...sections.filter((s) => matches(s.title)).slice(0, 40).map((s): Completion => ({
-        label: `${'  '.repeat(Math.min(s.depth, 3))}${s.title}`, detail: `p. ${s.page}`,
-        apply: applyLink(pdfName, s.page, s.title), section: GROUPS.section, type: 'section',
-      })),
-      ...annotations.filter((a) => a.text && matches(a.text)).slice(0, 30).map((a): Completion => ({
-        label: excerpt(a.text), detail: `p. ${a.page}`,
-        apply: applyLink(pdfName, a.page, excerpt(a.text, 50)), section: GROUPS.annotation, type: 'annotation',
-      })),
-    ];
+    const pdfName = hooks.pdfName();
+    const options = linkOptions(hooks.host.context, m.text.slice(2)).map((o): Completion => ({
+      label: o.label, detail: o.detail, apply: applyLink(pdfName, o.page, o.linkLabel), section: SECTIONS[o.group], type: o.group,
+    }));
     return { from: m.from, options, filter: false };
   };
 }
@@ -111,7 +82,7 @@ function linkAt(doc: Text, pos: number) {
   return parsePageLinks(line.text, line.from).find((l) => pos >= l.from && pos <= l.to) ?? null;
 }
 
-export function createEditor(parent: HTMLElement, text: string, hooks: EditorHooks): NotebookEditor {
+export function createEditor(parent: HTMLElement, text: string, hooks: EditorHooks): NotebookEditor & { formatTable(): boolean } {
   const { host, pdfName } = hooks;
 
   const insertCurrentLink: Command = (view) => {
@@ -139,7 +110,7 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
 
   const firstKeystrokeLink = EditorState.transactionFilter.of((tr) => {
     const { page } = host.context;
-    if (page === null || !tr.docChanged || !hooks.autoLinks() || !isFirstKeystroke(tr.startState.doc.length, tr.annotation(Transaction.userEvent))) return tr;
+    if (page === null || !tr.docChanged || !hooks.autoLinks() || !isFirstKeystroke(tr.startState.doc.length, tr.annotation(Transaction.userEvent), tr.newDoc.toString())) return tr;
     return [tr, { changes: { from: 0, insert: `${formatPageLink(page, undefined, pdfName())} ` }, sequential: true }];
   });
 
@@ -181,7 +152,42 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
       hooks.onBlur();
       return false;
     },
+    paste(e, view) {
+      const files = imageFiles(e.clipboardData);
+      if (!files.length) return false;
+      e.preventDefault();
+      void insertImages(view, files, view.state.selection.main.from, view.state.selection.main.to);
+      return true;
+    },
   });
+
+  const imageDrops = EditorView.domEventHandlers({
+    dragover(e) {
+      if (!e.dataTransfer?.types.includes('Files')) return false;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      return true;
+    },
+    drop(e, view) {
+      const files = imageFiles(e.dataTransfer);
+      if (!files.length) return false;
+      e.preventDefault();
+      const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }) ?? view.state.doc.length;
+      void insertImages(view, files, pos, pos);
+      return true;
+    },
+  });
+
+  async function insertImages(view: EditorView, files: File[], from: number, to: number) {
+    try {
+      const refs = await Promise.all(files.map((f) => hooks.files().save(f)));
+      const insert = refs.map((r) => imageMarkdown(r)).join('\n');
+      view.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length }, userEvent: 'input.paste', scrollIntoView: true });
+      view.focus();
+    } catch (err) {
+      alert(`The image could not be saved: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   const view = new EditorView({
     parent,
@@ -196,15 +202,19 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
           ? '# Notes\n\nWrite in Markdown. [[paper.pdf#page=3]] links a page of a PDF in the vault.'
           : '# Notes\n\nWrite in Markdown. [[ links a page, Ctrl+L links the page you are reading.'),
         chips,
-        autocompletion({ override: [linkCompletions(host, pdfName)], icons: false }),
+        noteWidgets(hooks.files),
+        autocompletion({ override: [linkCompletions(hooks)], icons: false }),
         Prec.high(keymap.of([
           { key: 'Enter', run: enterWithLink },
           { key: 'Mod-l', run: insertCurrentLink, preventDefault: true },
+          { key: 'Mod-m', run: formulaCommand, preventDefault: true },
+          { key: 'Alt-Shift-f', run: formatTableCommand, preventDefault: true },
         ])),
         Prec.high(markdownEditing()),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         firstKeystrokeLink,
         events,
+        imageDrops,
         EditorView.contentAttributes.of({ 'aria-label': 'Notebook', spellcheck: 'true' }),
         EditorView.updateListener.of((u) => {
           if (u.docChanged && !u.transactions.some((t) => t.annotation(Transaction.remote))) hooks.onChange(u.state.doc.toString());
@@ -228,5 +238,6 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
     },
     focus: () => view.focus(),
     destroy: () => view.destroy(),
+    formatTable: () => formatTableCommand(view),
   };
 }

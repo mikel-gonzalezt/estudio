@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '../../components/Icon.svelte';
+  import type { EditorMode } from '../../lib/types';
   import { app } from '../../lib/app.svelte';
   import { popOutNotebook, toggleWideNotebook } from '../commands';
   import type { Reader } from '../session.svelte';
@@ -8,6 +9,11 @@
 
   let { reader }: { reader: Reader } = $props();
   const study = $derived(reader.study);
+
+  function setEditorMode(m: EditorMode) {
+    app.settings.editorMode = m;
+    app.saveSettings();
+  }
 
   function setAutoLinks(on: boolean) {
     app.settings.autoPageLinks = on;
@@ -32,7 +38,7 @@
     </div>
   </div>
 {:else}
-  <Notebook doc={study.notebook} host={reader.notebookHost} autoLinks={app.settings.autoPageLinks} onAutoLinks={setAutoLinks}>
+  <Notebook doc={study.notebook} host={reader.notebookHost} autoLinks={app.settings.autoPageLinks} onAutoLinks={setAutoLinks} editorMode={app.settings.editorMode} onEditorMode={setEditorMode}>
     {#snippet actions()}
       <button
         class="act"

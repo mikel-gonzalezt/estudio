@@ -94,7 +94,11 @@ export interface Settings {
   autoPageLinks: boolean;
   /** Where a new notebook `.md` is created: null puts it next to its PDF. */
   notebookFolder: VaultFolder | null;
+  /** How notebooks are edited: formatted like a document, or as Markdown source. */
+  editorMode: EditorMode;
 }
+
+export type EditorMode = 'document' | 'markdown';
 
 export const DEFAULT_SETTINGS: Settings = {
   meanings: DEFAULT_MEANINGS,
@@ -107,6 +111,7 @@ export const DEFAULT_SETTINGS: Settings = {
   wideNotebook: false,
   autoPageLinks: true,
   notebookFolder: null,
+  editorMode: 'document',
 };
 
 export function newId<T extends AnnId | CardId>(): T {

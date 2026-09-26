@@ -4,6 +4,7 @@
   import { askPermission } from '../../lib/fsaccess';
   import { linkedPdfName, resolveHome, type NotebookHome, type Resolved } from '../../lib/notebookstore';
   import type { NotebookContext } from '../../lib/notebooksync';
+  import type { EditorMode } from '../../lib/types';
   import { NotebookChannel, NotebookDoc } from './doc.svelte';
   import type { NotebookHost } from './host.svelte';
   import Notebook from './Notebook.svelte';
@@ -17,6 +18,12 @@
   let context = $state.raw<NotebookContext>({ title: '', page: 1, sections: [], annotations: [] });
   let connected = $state(false);
   let autoLinks = $state(true);
+  let editorMode = $state<EditorMode>('document');
+
+  async function setEditorMode(m: EditorMode) {
+    editorMode = m;
+    await putSettings({ ...(await getSettings()), editorMode: m });
+  }
 
   const host: NotebookHost = {
     get context() {
@@ -66,6 +73,7 @@
       const [settings, rec] = await Promise.all([getSettings(), getDoc(docId)]);
       document.documentElement.dataset.theme = settings.theme;
       autoLinks = settings.autoPageLinks;
+      editorMode = settings.editorMode;
       if (rec && !context.title) context = { ...context, title: rec.title };
       await attach();
     })();
@@ -91,7 +99,7 @@
     </span>
   </header>
   {#if doc}
-    <Notebook {doc} {host} {autoLinks} onAutoLinks={(on) => void setAutoLinks(on)} autofocus />
+    <Notebook {doc} {host} {autoLinks} onAutoLinks={(on) => void setAutoLinks(on)} {editorMode} onEditorMode={(m) => void setEditorMode(m)} autofocus />
   {:else if blocked?.kind === 'locked'}
     {@const vault = blocked.vault}
     <div class="blocked" data-testid="popout-blocked">

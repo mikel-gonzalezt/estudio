@@ -62,7 +62,7 @@
     {#if error}<p class="error">Could not open {request.place.name}: {error}</p>
     {:else if loaded}
       {#if notice}<p class="notice" role="status">{notice} <button class="btn" onclick={() => (notice = '')}>OK</button></p>{/if}
-      <Notebook {doc} {host} autoLinks={false} />
+      <Notebook {doc} {host} autoLinks={false} editorMode={app.settings.editorMode} onEditorMode={(m) => { app.settings.editorMode = m; app.saveSettings(); }} />
     {/if}
   </main>
 </div>
