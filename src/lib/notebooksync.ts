@@ -48,10 +48,10 @@ export const channelName = (docId: string) => `estudio-notebook:${docId}`;
 
 const POPOUT_ROUTE = /^#\/notebook\/([^?]+)(?:\?(.*))?$/;
 
-/** `#/notebook/<docId>`, plus `?vault=<id>&pdf=<path>` when the notebook is a `.md` in a vault. */
+/** `#/notebook/<docId>`, plus `?vault=<id>&note=<path>&pdf=<name>` when the notebook is a `.md` in a vault. */
 export function popoutHash(home: NotebookHome): string {
   const base = `#/notebook/${encodeURIComponent(home.docId)}`;
-  return home.kind === 'vault' ? `${base}?${new URLSearchParams({ vault: home.vault, pdf: home.pdfPath })}` : base;
+  return home.kind === 'vault' ? `${base}?${new URLSearchParams({ vault: home.vault, note: home.path, pdf: home.pdfName })}` : base;
 }
 
 export function parsePopoutHash(hash: string): NotebookHome | null {
@@ -60,6 +60,7 @@ export function parsePopoutHash(hash: string): NotebookHome | null {
   const docId = decodeURIComponent(m[1]!) as DocId;
   const q = new URLSearchParams(m[2] ?? '');
   const vault = q.get('vault');
-  const pdfPath = q.get('pdf');
-  return vault && pdfPath ? { kind: 'vault', docId, vault: vault as VaultId, pdfPath } : { kind: 'db', docId };
+  const path = q.get('note');
+  const pdfName = q.get('pdf');
+  return vault && path && pdfName ? { kind: 'vault', docId, vault: vault as VaultId, path, pdfName } : { kind: 'db', docId };
 }

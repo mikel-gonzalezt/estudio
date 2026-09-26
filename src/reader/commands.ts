@@ -44,6 +44,13 @@ export function readerCommands(r: Reader, ui: ReaderUi): Command[] {
     { id: 'edit.redo', title: 'Redo', group: 'Annotate', keys: ['Ctrl+Y', 'Ctrl+Shift+Z'], when: () => a.canRedo, run: () => a.redo() },
     { id: 'edit.delete', title: 'Delete selected annotation', group: 'Annotate', keys: ['Delete'], when: () => !!a.selected, run: () => a.selected && a.remove(a.selected) },
     { id: 'study.notebook', title: 'Open notebook', group: 'Study', keys: ['N'], run: () => r.study.showRight('notebook') },
+    {
+      id: 'study.notebookPlace', title: 'Notebook location / where new notebooks go…', group: 'Study',
+      run: () => {
+        r.study.showRight('notebook');
+        r.study.placeOpen = true;
+      },
+    },
     { id: 'study.cards', title: 'Open flashcards', group: 'Study', keys: ['C'], run: () => r.study.showRight('cards') },
     { id: 'study.widenNotebook', title: 'Widen notebook / restore width', group: 'Study', keys: ['W'], run: () => toggleWideNotebook(r) },
     { id: 'study.popOut', title: 'Open notebook in its own window', group: 'Study', when: () => !r.study.poppedOut, run: () => popOutNotebook(r) },

@@ -1,24 +1,29 @@
 import { getNotebook, listVaults, putNotebook } from './db';
 import { hasPermission } from './fsaccess';
-import type { DocId, Vault, VaultId } from './types';
-import { dirAt } from './vault';
-import { nameOf, parentOf, stemOf, type VaultPath } from './vaulttree';
+import { notebookFrontmatter, notebookIdIn, splitFrontmatter } from './frontmatter';
+import type { NotebookTracker } from './notebookindex';
+import type { DocId, NotebookLoc, Vault, VaultId } from './types';
+import { fileAt, fileOrNull, freePath, writeFile } from './vault';
+import type { VaultPath } from './vaulttree';
 
 /**
- * Where a document's notebook lives: Estudio's database, or `<name>.md` beside `<name>.pdf` in a
- * vault. It is all a second window needs to find the same notebook.
+ * Where a document's notebook lives: Estudio's database, or a `.md` file in a vault whose
+ * frontmatter names the document (see `frontmatter.ts`). `pdfName` is the PDF's file name, which
+ * page links and the `pdf:` property name. It is all a second window needs to find the notebook.
  */
 export type NotebookHome =
   | { kind: 'db'; docId: DocId }
-  | { kind: 'vault'; docId: DocId; vault: VaultId; pdfPath: VaultPath };
+  | { kind: 'vault'; docId: DocId; vault: VaultId; path: VaultPath; pdfName: string };
+
+export type VaultHome = Extract<NotebookHome, { kind: 'vault' }>;
 
 /** The PDF file name that page links name, for notebooks that Obsidian can read too. */
-export const linkedPdfName = (h: NotebookHome) => (h.kind === 'vault' ? nameOf(h.pdfPath) : undefined);
+export const linkedPdfName = (h: NotebookHome) => (h.kind === 'vault' ? h.pdfName : undefined);
 
-/** Where a notebook's Markdown lives. */
+/** Where a notebook's Markdown lives. `always` writes even an empty notebook, creating its file. */
 export interface NotebookStore {
   load(): Promise<string>;
-  save(markdown: string): Promise<void>;
+  save(markdown: string, always?: boolean): Promise<void>;
 }
 
 export function idbNotebook(docId: DocId): NotebookStore {
@@ -28,30 +33,79 @@ export function idbNotebook(docId: DocId): NotebookStore {
   };
 }
 
-/**
- * A Markdown file in a vault. The file is created on the first edit; until then an older
- * notebook kept in IndexedDB for `docId` is shown, so notes written before the vault existed carry over.
- */
-export function fileNotebook(dir: FileSystemDirectoryHandle, name: string, docId?: DocId): NotebookStore {
+/** A standalone Markdown note, read and written whole. */
+export function fileNotebook(dir: FileSystemDirectoryHandle, name: string): NotebookStore {
   const existing = () => dir.getFileHandle(name).catch(() => null);
   return {
     async load() {
       const h = await existing();
-      if (h) return (await h.getFile()).text();
-      return docId ? (await getNotebook(docId))?.markdown ?? '' : '';
+      return h ? (await h.getFile()).text() : '';
     },
     async save(markdown) {
       const h = (await existing()) ?? (markdown ? await dir.getFileHandle(name, { create: true }) : null);
-      if (!h) return;
-      const w = await h.createWritable();
-      await w.write(markdown);
-      await w.close();
+      if (h) await writeFile(h, markdown);
     },
   };
 }
 
-export const sidecarNotebook = (dir: FileSystemDirectoryHandle, pdfName: string, docId: DocId) =>
-  fileNotebook(dir, `${stemOf(pdfName)}.md`, docId);
+/**
+ * A document's notebook file. The editor sees the body; every save re-reads the file's
+ * frontmatter, keeps the keys the user added, and writes Estudio's two keys first. The file is
+ * created on the first edit; until then an older notebook kept in IndexedDB for the document is
+ * shown, so notes written before the vault existed carry over. A file at the planned path that
+ * names another document is never overwritten: the notebook takes a free name beside it.
+ *
+ * With a `tracker` (the reader window's index), a save goes wherever Estudio moved the file
+ * meanwhile, looks for it again if it vanished, and reports where it wrote.
+ */
+export function vaultNotebook(
+  home: VaultHome,
+  root: (vault: VaultId) => FileSystemDirectoryHandle | undefined,
+  tracker?: NotebookTracker,
+): NotebookStore {
+  const { docId, pdfName } = home;
+  let loc: NotebookLoc = { vault: home.vault, path: home.path };
+  let seen = false;
+  const fileOf = async (l: NotebookLoc) => {
+    const r = root(l.vault);
+    return r ? fileOrNull(r, l.path) : null;
+  };
+  return {
+    async load() {
+      const h = await fileOf(loc);
+      if (!h) return (await getNotebook(docId))?.markdown ?? '';
+      seen = true;
+      return splitFrontmatter(await (await h.getFile()).text()).body;
+    },
+    async save(body, always = false) {
+      loc = tracker?.where(docId) ?? loc;
+      let h = await fileOf(loc);
+      if (!h && seen && tracker) {
+        const found = await tracker.find(docId);
+        if (found) {
+          loc = found;
+          h = await fileOf(loc);
+        }
+      }
+      const r = root(loc.vault);
+      if (!r) throw new Error('Estudio cannot open the vault that holds this notebook.');
+      let front: string | null = null;
+      if (h) {
+        const text = await (await h.getFile()).text();
+        const id = notebookIdIn(text);
+        if (id && id !== docId) {
+          h = null;
+          loc = { ...loc, path: await freePath(r, loc.path) };
+        } else front = splitFrontmatter(text).front;
+      }
+      if (!h && !body && !always) return;
+      h ??= await fileAt(r, loc.path, true);
+      await writeFile(h, notebookFrontmatter(front, docId, pdfName) + body);
+      seen = true;
+      tracker?.saved(docId, loc);
+    },
+  };
+}
 
 export type Resolved =
   | { kind: 'ready'; store: NotebookStore }
@@ -65,10 +119,5 @@ export async function resolveHome(home: NotebookHome): Promise<Resolved> {
   const vault = (await listVaults()).find((v) => v.id === home.vault);
   if (!vault) return { kind: 'missing', reason: 'The vault that holds this notebook is no longer in Estudio.' };
   if (!(await hasPermission(vault.handle, 'readwrite'))) return { kind: 'locked', vault };
-  try {
-    const dir = await dirAt(vault.handle, parentOf(home.pdfPath));
-    return { kind: 'ready', store: sidecarNotebook(dir, nameOf(home.pdfPath), home.docId) };
-  } catch {
-    return { kind: 'missing', reason: `The folder of ${home.pdfPath} is no longer in the vault "${vault.name}".` };
-  }
+  return { kind: 'ready', store: vaultNotebook(home, (id) => (id === vault.id ? vault.handle : undefined)) };
 }

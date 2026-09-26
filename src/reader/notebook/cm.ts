@@ -15,8 +15,8 @@ import { continueMarkup, markdownEditing } from './mdediting';
 
 export interface EditorHooks {
   host: NotebookHost;
-  /** Set for vault notebooks, whose links name the PDF. */
-  pdfName: string | undefined;
+  /** Set for vault notebooks, whose links name the PDF; read on each use, as a notebook can move into a vault. */
+  pdfName: () => string | undefined;
   autoLinks: () => boolean;
   onChange: (text: string) => void;
   onBlur: () => void;
@@ -83,12 +83,13 @@ const GROUPS = {
   annotation: { name: 'Annotations', rank: 2 },
 };
 
-function linkCompletions(host: NotebookHost, pdfName: string | undefined) {
+function linkCompletions(host: NotebookHost, linkName: () => string | undefined) {
   return (ctx: CompletionContext): CompletionResult | null => {
     const m = ctx.matchBefore(/\[\[[^[\]|\n]*/);
     if (!m) return null;
     const q = m.text.slice(2).trim().toLowerCase();
     const { page, sections, annotations } = host.context;
+    const pdfName = linkName();
     const matches = (s: string) => !q || s.toLowerCase().includes(q);
     const options: Completion[] = [
       ...(page === null ? [] : [{ label: `Current page (p. ${page})`, apply: applyLink(pdfName, page), section: GROUPS.page, type: 'page' }]),
@@ -118,7 +119,7 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
     if (page === null) return false;
     const { from } = view.state.selection.main;
     const prev = view.state.sliceDoc(from - 1, from);
-    const insert = `${prev && !/\s/.test(prev) ? ' ' : ''}${formatPageLink(page, undefined, pdfName)} `;
+    const insert = `${prev && !/\s/.test(prev) ? ' ' : ''}${formatPageLink(page, undefined, pdfName())} `;
     view.dispatch(view.state.update(view.state.replaceSelection(insert), { userEvent: 'input' }));
     return true;
   };
@@ -131,7 +132,7 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
     if (!continueMarkup(view)) insertNewlineAndIndent(view);
     if (!fire) return true;
     const pos = view.state.selection.main.head;
-    const insert = autoLinkInsert(view.state.doc.toString(), pos, page, pdfName);
+    const insert = autoLinkInsert(view.state.doc.toString(), pos, page, pdfName());
     if (insert) view.dispatch({ changes: { from: pos, insert }, selection: { anchor: pos + insert.length }, userEvent: 'input.autolink' });
     return true;
   };
@@ -139,7 +140,7 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
   const firstKeystrokeLink = EditorState.transactionFilter.of((tr) => {
     const { page } = host.context;
     if (page === null || !tr.docChanged || !hooks.autoLinks() || !isFirstKeystroke(tr.startState.doc.length, tr.annotation(Transaction.userEvent))) return tr;
-    return [tr, { changes: { from: 0, insert: `${formatPageLink(page, undefined, pdfName)} ` }, sequential: true }];
+    return [tr, { changes: { from: 0, insert: `${formatPageLink(page, undefined, pdfName())} ` }, sequential: true }];
   });
 
   const events = EditorView.domEventHandlers({
@@ -171,7 +172,7 @@ export function createEditor(parent: HTMLElement, text: string, hooks: EditorHoo
       e.preventDefault();
       const q = JSON.parse(raw) as QuoteDrag;
       const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }) ?? view.state.doc.length;
-      const { from, insert } = blockInsertion(view.state.doc.toString(), pos, quoteBlock(q.text, q.page, pdfName));
+      const { from, insert } = blockInsertion(view.state.doc.toString(), pos, quoteBlock(q.text, q.page, pdfName()));
       view.dispatch({ changes: { from, insert }, selection: { anchor: from + insert.length }, userEvent: 'input.drop', scrollIntoView: true });
       view.focus();
       return true;

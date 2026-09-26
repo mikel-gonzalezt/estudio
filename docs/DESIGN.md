@@ -83,11 +83,39 @@ A document opened with a writable `FileSystemFileHandle` (file-handler launch, t
 A vault is a folder picked with `showDirectoryPicker({ mode: 'readwrite' })`, like an Obsidian vault. Handles live in the `vaults` store; after a restart a vault whose grant lapsed shows "Allow access", one click. The last opened vault reopens on start when its grant is still valid.
 
 - The tree is a pure map from vault path to node (`src/lib/vaulttree.ts`, tested): folders first, natural name order, only `.pdf` and `.md` files, dotfiles and dot-folders (`.obsidian/`, `.estudio/`) ignored. `src/lib/vault.ts` is the file-system boundary: walking, create, move (native `move()` with a copy-and-delete fallback), delete.
-- The Files tree shows on the library and as the reader's Files tab: open, new folder, new note, rename (F2), move by drag and drop, delete (Del, confirmed), import PDFs by picker or by dropping files on a folder. Renaming or moving a PDF takes its notebook with it.
-- A vault PDF's notebook is `<name>.md` beside `<name>.pdf`, created on the first edit (an older IndexedDB notebook for the same document is shown until then). Page links in it are written as `[[<name>.pdf#page=N|label or p. N]]`, which Obsidian follows. Every writer (Ctrl+L, `[[` completion, auto links, drag-in and "Quote to notebook") goes through `formatPageLink(page, label?, pdfName?)` in `src/lib/pagelink.ts`, given the PDF name by the notebook's `NotebookDoc`.
-- Where a notebook lives is a `NotebookHome` (`src/lib/notebookstore.ts`): the database, or a vault id and the PDF's vault path. The reader builds its store directly from the folder handle it already has. The pop-out route carries the home (`#/notebook/<docId>?vault=<id>&pdf=<path>`), and the pop-out window looks the vault up in IndexedDB and writes the same `.md`. If the vault's grant has lapsed it shows "Allow access to <vault>" (asking needs a click). If the vault was removed from Estudio, or the PDF's folder is gone, it says so and shows no editor rather than saving somewhere the reader would not read.
+- The Files tree shows on the library and as the reader's Files tab: open, new folder, new note, rename (F2), move by drag and drop, delete (Del, confirmed), import PDFs by picker or by dropping files on a folder. Renaming or moving a PDF takes a same-named notebook beside it along.
+- Page links in a notebook file are written as `[[<name>.pdf#page=N|label or p. N]]`, which Obsidian follows. Every writer (Ctrl+L, `[[` completion, auto links, drag-in and "Quote to notebook") goes through `formatPageLink(page, label?, pdfName?)` in `src/lib/pagelink.ts`, given the PDF name by the notebook's `NotebookDoc`.
+- Where a notebook lives is a `NotebookHome` (`src/lib/notebookstore.ts`): the database, or a vault id, the notebook's vault path and the PDF's file name. The pop-out route carries the home (`#/notebook/<docId>?vault=<id>&note=<path>&pdf=<name>`), and the pop-out window looks the vault up in IndexedDB and writes the same `.md`. If the vault's grant has lapsed it shows "Allow access to <vault>" (asking needs a click). If the vault was removed from Estudio it says so and shows no editor rather than saving somewhere the reader would not read.
 - A standalone `.md` note opens full width in the same CodeMirror editor beside the tree. A note has no page on screen, so Ctrl+L, auto links and "Current page" are off. Clicking a link that names a PDF opens it from the vault at that page. The target resolves as in Obsidian: a path relative to the note's folder, then to the vault root, then any PDF whose path ends with the target, preferring the note's folder and then the shortest path (`resolvePdfLink` in `src/lib/vaulttree.ts`). In a PDF's notebook, a link naming a different vault PDF opens that PDF the same way; other links jump within the document.
 - A PDF opened from anywhere (launch, picker) that lies inside the open vault is treated as a vault file.
+
+## Notebook pairing
+
+PDFs and notes can live apart, for example PDFs in one vault and notes in an Obsidian vault opened in Estudio as a second vault. A notebook is paired with its PDF by the document's identity, not by file name, so the pairing survives moving or renaming the note anywhere Estudio can read.
+
+- A notebook file carries YAML frontmatter that names its document. `estudio-doc` is the `DocId` (the pdf.js fingerprint, see Files, saving and identity), and `pdf` is the PDF's name as a wiki link, which Obsidian shows as a property.
+
+  ```yaml
+  ---
+  estudio-doc: ff3e15dfc6c8c63548b1c64bc2982fdb
+  pdf: "[[attention.pdf]]"
+  tags: [ml]          # anything else the user adds is kept
+  ---
+  ```
+
+  The editor shows only the body. Each save re-reads the file, keeps every other key (multi-line ones included), and writes Estudio's two keys first, so writing twice gives the same text (`src/lib/frontmatter.ts`, tested). A file at the planned path whose frontmatter names another document is never overwritten; the notebook takes `name (2).md` instead.
+- The notebook index (`src/lib/notebookindex.ts`) maps `DocId` to a vault and path across every vault Estudio can read, not only the open one. It is built when a vault is opened or its access is granted, by reading just the first 2 KB of each `.md` (`markdownHeads` in `src/lib/vault.ts`); dot-folders are skipped. Estudio's own saves, renames, moves and deletes update it. It is persisted in the `settings` store under `notebookIndex`, so a notebook in a vault whose grant lapsed is still known after a restart.
+- Opening a document looks up its notebook (`NotebookIndex.locate`, tested against an in-memory file system):
+  1. The indexed file, after checking that its frontmatter still names the document. If it does not (the file was moved or deleted outside Estudio), every readable vault is scanned again.
+  2. For a vault PDF, a `<name>.md` beside it whose frontmatter names no document, or this one. A notebook from before frontmatter is adopted this way and gains frontmatter on its next save.
+  3. A new `<pdf name>.md`, made unique, where new notebooks go. That setting lives in the notebook pane's ⋯ menu (also "Notebook location" in the command palette): "Next to the PDF", the default, or a folder in a chosen vault, created when first needed. With "Next to the PDF", a PDF outside any vault keeps its notebook in IndexedDB.
+  4. Otherwise IndexedDB.
+
+  A notebook indexed in a vault Estudio cannot read right now is still returned, and the pane shows "Allow access to <vault>" instead of starting a second notebook.
+- A new notebook file is created on the first edit. Until then an older IndexedDB notebook for the document is shown, and the first edit writes it into the file.
+- "Move notebook to a vault…" in the ⋯ menu writes an IndexedDB notebook into a chosen vault folder with its frontmatter, rewrites its `[[pN]]` links to name the PDF, and keeps editing the file. The IndexedDB copy is left as it was.
+- While a document is open, its store asks the index where the file is before each save. A note moved or renamed in Estudio's Files tree keeps being written in its new place, and a note that vanished is looked for again before it would be recreated.
+- Renaming or moving a PDF in the Files tree still takes a same-named `.md` beside it along. A notebook kept elsewhere stays where it is; its `pdf:` property is refreshed on its next save.
 
 ## Installing and updating
 
@@ -122,7 +150,7 @@ Studying
 - Typing `[[` opens a completion list: the current page first, then outline sections (link labelled with the section title), then annotations whose text matches what was typed (labelled with an excerpt).
 - Dragging an annotation from the sidebar, or selected page text, into the editor drops a blockquote with a page link at that spot.
 - Auto page links (toggle in the notebook header, on by default, stored in settings): Enter at the end of a non-empty line, or the first keystroke into an empty notebook, starts the new paragraph with a chip for the page being read when that page differs from the nearest link above. It never fires on undo, redo, paste or drop, nor inside a blockquote.
-- Pop-out: the notebook opens in its own window (`#/notebook/<docId>`, which renders only the editor; vault notebooks add the vault and PDF path, see Vaults). The pane shows a placeholder until the window closes. Page links clicked there jump the reader. Both windows share text over a `BroadcastChannel` with last-edit-wins: each local edit bumps a revision `(n, windowId)`, a window adopts incoming text only when that revision is newer, and only the author of the newest revision writes it to the notebook's store (IndexedDB or the vault `.md`), so neither window saves stale text over the other's edit (`src/lib/notebooksync.ts`).
+- Pop-out: the notebook opens in its own window (`#/notebook/<docId>`, which renders only the editor; vault notebooks add the vault, the notebook path and the PDF name, see Vaults). The pane shows a placeholder until the window closes. Page links clicked there jump the reader. Both windows share text over a `BroadcastChannel` with last-edit-wins: each local edit bumps a revision `(n, windowId)`, a window adopts incoming text only when that revision is newer, and only the author of the newest revision writes it to the notebook's store (IndexedDB or the vault `.md`), so neither window saves stale text over the other's edit (`src/lib/notebooksync.ts`).
 
 Layout
 - The sidebar and the study pane have drag handles. Widths are clamped (sidebar 180 to 520 px, study pane 260 px up to leaving the page view 320 px), saved in settings, and reset by double-clicking the handle. Handles are focusable: arrow keys move them 16 px (64 with Shift), Home/End jump to the limits.
@@ -149,7 +177,8 @@ Export and safety
 - pdf-lib rewrites the whole file. Encrypted PDFs (including owner-password-only ones) are not written: annotations stay in Estudio and the status bar says so. Digital signatures are invalidated by a rewrite; incremental updates would avoid that, but pdf-lib does not produce them.
 - Each save parses and serialises the PDF in the worker. The page stays responsive, but for books of tens of MB a save takes seconds.
 - Imported markup has no highlighted text (other apps do not store it), so the annotations list shows it without a quote.
-- A vault notebook is overwritten on save without checking whether Obsidian changed it meanwhile, and renaming a PDF does not rewrite links to it in other notes.
+- A vault notebook's body is overwritten on save without checking whether Obsidian changed it meanwhile (its frontmatter is re-read and kept), and renaming a PDF does not rewrite links to it in other notes.
+- Two notes whose frontmatter names the same document: the index keeps the one with the shortest path, in the first vault scanned. Notes moved into a vault by another app while Estudio runs are found when a document's indexed note goes missing, not before.
 - A PDF opened without a handle is rendered with its own annotation objects; if it was exported by Estudio, its annotations are drawn twice.
 
 ## Later (tablet / mobile / v2)

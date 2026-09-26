@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { AnnId, Card, CardId, DocId, DocRecord, Notebook, Settings, StoredAnnotation, Vault, VaultId } from './types';
+import type { AnnId, Card, CardId, DocId, DocRecord, Notebook, NotebookLoc, Settings, StoredAnnotation, Vault, VaultId } from './types';
 import { DEFAULT_SETTINGS } from './types';
 import type { Backup } from './backup';
 
@@ -136,6 +136,15 @@ export async function putVault(v: Vault): Promise<void> {
 
 export async function deleteVault(id: VaultId): Promise<void> {
   await (await db()).delete('vaults', id);
+}
+
+/** Where each document's notebook `.md` was last seen, so a notebook in a locked vault is still known. */
+export async function getNotebookIndex(): Promise<Record<DocId, NotebookLoc>> {
+  return ((await (await db()).get('settings', 'notebookIndex')) as Record<DocId, NotebookLoc> | undefined) ?? {};
+}
+
+export async function putNotebookIndex(index: Record<DocId, NotebookLoc>): Promise<void> {
+  await (await db()).put('settings', plain(index), 'notebookIndex');
 }
 
 export async function getSettings(): Promise<Settings> {

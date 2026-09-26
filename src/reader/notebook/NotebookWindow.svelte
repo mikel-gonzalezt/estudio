@@ -31,7 +31,7 @@
     await putSettings({ ...(await getSettings()), autoPageLinks: on });
   }
 
-  /** Opens the notebook where the reader keeps it; a vault notebook is the `.md` beside the PDF. */
+  /** Opens the notebook where the reader keeps it, as its route names it. */
   async function attach() {
     const r = await resolveHome(home);
     if (r.kind !== 'ready') {

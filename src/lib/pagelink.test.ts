@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  autoLinkInsert, blockInsertion, formatPageLink, isFirstKeystroke, pageAbove, pageLinkAtStart, parsePageLinks, startsParagraph,
+  autoLinkInsert, blockInsertion, formatPageLink, isFirstKeystroke, namePageLinks, pageAbove, pageLinkAtStart, parsePageLinks, startsParagraph,
 } from './pagelink';
 import { renderMarkdown } from './notebook';
 import { exportMarkdown } from './export/markdown';
@@ -145,5 +145,12 @@ describe('page links in rendering and export', () => {
       exportedAt: new Date(0), notebook: 'see [[p2]], [[p3|Intro]] and [[a.pdf#page=4]]',
     });
     expect(md).toContain('see (p. 2), Intro (p. 3) and (p. 4)');
+  });
+});
+
+describe('namePageLinks', () => {
+  it('names the PDF in bare page links and leaves the others alone', () => {
+    expect(namePageLinks('a [[p3]] b [[p4|Intro]] c [[x.pdf#page=2]]', 'r.pdf'))
+      .toBe('a [[r.pdf#page=3|p. 3]] b [[r.pdf#page=4|Intro]] c [[x.pdf#page=2]]');
   });
 });

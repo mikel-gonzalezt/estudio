@@ -62,7 +62,7 @@
 
 <style>
   .notebook { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-  .head { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .head { position: relative; display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   .modes { display: flex; gap: 2px; margin-right: auto; }
   .head button { font-size: 12px; padding: 3px 8px; color: var(--muted); }
   .modes button.on { background: var(--surface-2); color: var(--text); }

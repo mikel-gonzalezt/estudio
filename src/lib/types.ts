@@ -20,6 +20,12 @@ export type VaultId = string & { __brand: 'VaultId' };
 /** A folder the reader works in, Obsidian style. The handle keeps its access grant across restarts. */
 export interface Vault { id: VaultId; name: string; handle: FileSystemDirectoryHandle; addedAt: number; openedAt: number }
 
+/** A file in a vault: the vault and its '/'-separated path from the vault root. */
+export interface NotebookLoc { vault: VaultId; path: string }
+
+/** A folder in a vault; `dir` is '' for the vault root. */
+export interface VaultFolder { vault: VaultId; dir: string }
+
 export const COLOR_IDS = ['yellow', 'green', 'blue', 'pink', 'orange', 'purple'] as const;
 export type ColorId = (typeof COLOR_IDS)[number];
 
@@ -86,6 +92,8 @@ export interface Settings {
   wideNotebook: boolean;
   /** A new notebook paragraph starts with a link to the page being read when that page changed. */
   autoPageLinks: boolean;
+  /** Where a new notebook `.md` is created: null puts it next to its PDF. */
+  notebookFolder: VaultFolder | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -98,6 +106,7 @@ export const DEFAULT_SETTINGS: Settings = {
   rightPaneW: 340,
   wideNotebook: false,
   autoPageLinks: true,
+  notebookFolder: null,
 };
 
 export function newId<T extends AnnId | CardId>(): T {

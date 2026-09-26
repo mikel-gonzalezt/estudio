@@ -6,6 +6,7 @@ import type { AnnId, DocId, DocRecord, FileAnnotation, StoredAnnotation } from '
 import { FileSync, type SaveState, type SyncHost } from './filesync.svelte';
 import { loadPdf, pageInfo } from './pdf';
 import { Reader } from './session.svelte';
+import { findNotebook } from './study.svelte';
 
 function syncHost(r: Reader): SyncHost {
   return {
@@ -70,7 +71,7 @@ export async function openDocument(request: PdfRequest): Promise<Opened> {
     }
   }
   await putDoc(doc);
-  const reader = new Reader(pdf, info, doc, annotations, request);
+  const reader = new Reader(pdf, info, doc, annotations, request, await findNotebook(id, file.name, request.place));
   if (handle) {
     reader.sync = new FileSync(handle, doc.syncBase ?? {}, syncHost(reader), state);
     if (behind) reader.sync.touch();

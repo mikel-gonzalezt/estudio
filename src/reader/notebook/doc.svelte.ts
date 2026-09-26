@@ -37,9 +37,9 @@ const SAVE_DELAY_MS = 500;
 export class NotebookDoc {
   readonly docId: DocId;
   readonly channel: NotebookChannel;
-  /** The PDF's file name when the notebook is a `.md` beside it in a vault; page links then name it. */
-  readonly pdfName: string | undefined;
-  readonly #store: NotebookStore;
+  /** The PDF's file name when the notebook is a `.md` in a vault; page links then name it. */
+  pdfName: string | undefined;
+  #store: NotebookStore;
   markdown = $state('');
   readonly #self = crypto.randomUUID();
   #rev: Rev = NO_REV;
@@ -58,6 +58,20 @@ export class NotebookDoc {
 
   async load() {
     this.#receive(await this.#store.load(), DISK_REV);
+  }
+
+  /** Reads the notebook again, dropping what was shown, as when it could not be read before. */
+  async reload() {
+    this.#rev = NO_REV;
+    await this.load();
+  }
+
+  /** From now on the notebook is kept in `store`. */
+  rehome(store: NotebookStore, pdfName: string | undefined) {
+    clearTimeout(this.#timer);
+    this.#dirty = false;
+    this.#store = store;
+    this.pdfName = pdfName;
   }
 
   /** A change made in this window. */

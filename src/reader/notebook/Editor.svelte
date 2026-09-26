@@ -17,7 +17,7 @@
       if (dead) return;
       ed = createEditor(el, doc.markdown, {
         host,
-        pdfName: doc.pdfName,
+        pdfName: () => doc.pdfName,
         autoLinks: () => autoLinks,
         onChange: (t) => doc.edit(t),
         onBlur: () => void doc.flush(),

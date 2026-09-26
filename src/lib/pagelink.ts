@@ -46,6 +46,18 @@ export function formatPageLink(page: number, label?: string, pdfName?: string): 
   return l ? `[[p${page}|${l}]]` : `[[p${page}]]`;
 }
 
+/** Rewrites `[[p12]]` links to name `pdfName`, as a notebook moving into a vault needs for Obsidian. */
+export function namePageLinks(markdown: string, pdfName: string): string {
+  let out = '';
+  let at = 0;
+  for (const l of parsePageLinks(markdown)) {
+    if (l.file) continue;
+    out += markdown.slice(at, l.from) + formatPageLink(l.page, l.label ?? undefined, pdfName);
+    at = l.to;
+  }
+  return out + markdown.slice(at);
+}
+
 export const chipText = (l: Pick<PageLink, 'page' | 'label'>) => l.label ?? `p. ${l.page}`;
 
 /** Page of the last link that ends at or before `pos`, or null when none precedes it. */

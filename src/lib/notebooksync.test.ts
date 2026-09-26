@@ -30,7 +30,7 @@ describe('notebook revisions', () => {
     const docId = 'abc/def 1?x=&' as DocId;
     for (const home of [
       { kind: 'db', docId },
-      { kind: 'vault', docId, vault: 'v-1' as VaultId, pdfPath: 'Papers/a & b?.pdf' },
+      { kind: 'vault', docId, vault: 'v-1' as VaultId, path: 'Notes/a & b?.md', pdfName: 'a & b?.pdf' },
     ] as const) expect(parsePopoutHash(popoutHash(home))).toEqual(home);
     expect(parsePopoutHash('#/library')).toBeNull();
   });

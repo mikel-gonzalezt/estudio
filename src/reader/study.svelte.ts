@@ -1,20 +1,44 @@
 import { cardsFor, countDue, deleteCard, putCard } from '../lib/db';
 import { newSrs } from '../lib/fsrs';
 import { appendBlock, quoteBlock } from '../lib/notebook';
-import { linkedPdfName, type NotebookHome, type NotebookStore } from '../lib/notebookstore';
+import { app, type VaultPlace } from '../lib/app.svelte';
+import { notebookIndex } from '../lib/notebookindex';
+import { idbNotebook, linkedPdfName, vaultNotebook, type NotebookHome, type NotebookStore, type VaultHome } from '../lib/notebookstore';
 import { popoutHash } from '../lib/notebooksync';
+import { namePageLinks } from '../lib/pagelink';
+import { freePath } from '../lib/vault';
+import { vaults } from '../lib/vaults.svelte';
+import { joinPath, stemOf } from '../lib/vaulttree';
 import { NotebookChannel, NotebookDoc } from './notebook/doc.svelte';
-import { newId, type AnnId, type Card, type CardId, type DocId } from '../lib/types';
+import { newId, type AnnId, type Card, type CardId, type DocId, type Vault, type VaultFolder } from '../lib/types';
 
 export type RightTab = 'notebook' | 'cards';
 export type ReviewScope = 'doc' | 'all';
 
 export interface CardDraft { page: number; text: string; annId?: AnnId; cloze: boolean }
 
+/** Saves nothing: the notebook's vault cannot be read until access is granted again. */
+const UNREACHABLE: NotebookStore = { load: async () => '', save: async () => {} };
+
+function storeFor(home: NotebookHome): NotebookStore | null {
+  if (home.kind === 'db') return idbNotebook(home.docId);
+  return notebookIndex.readable(home.vault) ? vaultNotebook(home, (id) => notebookIndex.root(id), notebookIndex) : null;
+}
+
+/** Finds a document's notebook as the reader window opens it (see `NotebookIndex.locate`). */
+export async function findNotebook(docId: DocId, pdfName: string, place: VaultPlace | undefined): Promise<NotebookHome> {
+  const home = await notebookIndex.locate(docId, pdfName, place && { vault: place.vault, path: place.path }, app.settings.notebookFolder);
+  return home.kind === 'vault' && !vaults.list.some((v) => v.id === home.vault) ? { kind: 'db', docId } : home;
+}
+
 export class Study {
   readonly docId: DocId;
-  readonly #home: NotebookHome;
+  home = $state.raw<NotebookHome>()!;
   readonly notebook: NotebookDoc;
+  /** The notebook is a file in this vault, whose access grant lapsed. */
+  blocked = $state.raw<Vault | null>(null);
+  /** The notebook location menu is open. */
+  placeOpen = $state(false);
   /** The notebook is being edited in its own window; the pane shows a placeholder meanwhile. */
   poppedOut = $state(false);
   #popout: Window | null = null;
@@ -26,12 +50,14 @@ export class Study {
   draft = $state.raw<CardDraft | null>(null);
   review = $state<ReviewScope | null>(null);
 
-  constructor(home: NotebookHome, store: NotebookStore) {
+  constructor(home: NotebookHome) {
     const { docId } = home;
     this.docId = docId;
-    this.#home = home;
+    this.home = home;
+    const store = storeFor(home);
+    if (!store && home.kind === 'vault') this.blocked = vaults.list.find((v) => v.id === home.vault) ?? null;
     const channel = new NotebookChannel(docId);
-    this.notebook = new NotebookDoc(docId, channel, store, linkedPdfName(home));
+    this.notebook = new NotebookDoc(docId, channel, store ?? UNREACHABLE, linkedPdfName(home));
     channel.on((m) => {
       if (m.t === 'hello') this.notebook.announce();
       if (m.t === 'hello' || m.t === 'open') this.poppedOut = true;
@@ -48,7 +74,7 @@ export class Study {
 
   /** Opens the notebook in its own window, or brings that window to the front. */
   popOut(): boolean {
-    const url = `${location.pathname}${location.search}${popoutHash(this.#home)}`;
+    const url = `${location.pathname}${location.search}${popoutHash(this.home)}`;
     const w = window.open(url, `estudio-notebook-${this.docId}`, 'popup,width=720,height=900');
     if (!w) return false;
     this.#popout = w;
@@ -82,6 +108,38 @@ export class Study {
     } finally {
       this.notebook.channel.close();
     }
+  }
+
+  /** Asks for access to the notebook's vault again and loads the notebook from it; call from a click. */
+  async unblock(): Promise<boolean> {
+    const v = this.blocked;
+    if (!v || !(await vaults.unlock(v))) return false;
+    const store = storeFor(this.home);
+    if (!store) return false;
+    this.notebook.rehome(store, linkedPdfName(this.home));
+    await this.notebook.reload();
+    this.blocked = null;
+    return true;
+  }
+
+  /**
+   * Writes a database notebook into `folder` as `<pdf name>.md` with its frontmatter, its page
+   * links naming the PDF for Obsidian, and keeps editing it there.
+   */
+  async moveToVault(folder: VaultFolder, pdfName: string): Promise<void> {
+    const root = notebookIndex.root(folder.vault);
+    if (!root) throw new Error('Estudio cannot open that vault.');
+    await this.notebook.flush();
+    const home: VaultHome = {
+      kind: 'vault', docId: this.docId, vault: folder.vault, pdfName,
+      path: await freePath(root, joinPath(folder.dir, `${stemOf(pdfName)}.md`)),
+    };
+    const store = storeFor(home)!;
+    const text = namePageLinks(this.notebook.markdown, pdfName);
+    await store.save(text, true);
+    this.notebook.rehome(store, pdfName);
+    this.home = home;
+    this.notebook.edit(text);
   }
 
   dueHere = $derived.by(() => {

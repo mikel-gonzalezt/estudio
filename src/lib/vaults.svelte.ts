@@ -1,5 +1,6 @@
 import { deleteVault, listVaults, putVault } from './db';
 import { askPermission, hasPermission } from './fsaccess';
+import { notebookIndex, restoreNotebookIndex } from './notebookindex';
 import type { Vault, VaultId } from './types';
 import { dirAt, fileAt, moveEntry, pathIn, removeEntry, walk, writeFile } from './vault';
 import {
@@ -35,10 +36,11 @@ class Vaults {
   }
 
   async init() {
-    this.list = await listVaults();
+    [this.list] = await Promise.all([listVaults(), restoreNotebookIndex()]);
     const locked = new Set<VaultId>();
     for (const v of this.list) if (!(await hasPermission(v.handle, 'readwrite'))) locked.add(v.id);
     this.locked = locked;
+    for (const v of this.list) if (!locked.has(v.id)) void notebookIndex.scan(v);
     const last = this.list[0];
     if (last && !locked.has(last.id)) await this.#activate(last);
   }
@@ -60,19 +62,29 @@ class Vaults {
     const v: Vault = { id: crypto.randomUUID() as VaultId, name: handle.name, handle, addedAt: now, openedAt: now };
     await putVault(v);
     this.list = [v, ...this.list];
+    void notebookIndex.scan(v);
     await this.#activate(v);
   }
 
   /** Opens a vault, asking for access again if the grant lapsed; call from a click. */
   async open(v: Vault) {
-    if (!(await askPermission(v.handle, 'readwrite'))) {
+    if (!(await this.unlock(v))) {
       this.error = `Estudio needs access to "${v.name}" to open it.`;
       return;
     }
-    const locked = new Set(this.locked);
-    locked.delete(v.id);
-    this.locked = locked;
     await this.#activate(v);
+  }
+
+  /** Asks for access to a vault whose grant lapsed, without switching to it; call from a click. */
+  async unlock(v: Vault): Promise<boolean> {
+    if (!(await askPermission(v.handle, 'readwrite'))) return false;
+    if (this.locked.has(v.id)) {
+      const locked = new Set(this.locked);
+      locked.delete(v.id);
+      this.locked = locked;
+      await notebookIndex.scan(v);
+    }
+    return true;
   }
 
   async #activate(v: Vault) {
@@ -93,6 +105,7 @@ class Vaults {
 
   async forget(v: Vault) {
     await deleteVault(v.id);
+    notebookIndex.forget(v.id);
     this.list = this.list.filter((x) => x.id !== v.id);
     if (this.current?.id === v.id) this.close();
   }
@@ -193,8 +206,8 @@ class Vaults {
     if (next === node.name || this.#problem(parentOf(path), next, path)) return;
     await this.#run('Rename', async () => {
       const companions = companionsOf(this.tree, path);
-      await moveEntry(this.#root(), path, parentOf(path), next);
-      for (const c of companions) await moveEntry(this.#root(), c, parentOf(c), `${stemOf(next)}.md`);
+      await this.#move(path, parentOf(path), next);
+      for (const c of companions) await this.#move(c, parentOf(c), `${stemOf(next)}.md`);
     });
   }
 
@@ -203,15 +216,24 @@ class Vaults {
     if (!canMove(this.tree, path, toDir)) return;
     await this.#run('Move', async () => {
       const companions = companionsOf(this.tree, path).filter((c) => checkName(this.tree, toDir, nameOf(c)) === null);
-      await moveEntry(this.#root(), path, toDir, nameOf(path));
-      for (const c of companions) await moveEntry(this.#root(), c, toDir, nameOf(c));
+      await this.#move(path, toDir, nameOf(path));
+      for (const c of companions) await this.#move(c, toDir, nameOf(c));
       this.reveal(joinPath(toDir, nameOf(path)));
       if (toDir !== ROOT && !this.expanded.has(toDir)) this.toggle(toDir);
     });
   }
 
   async remove(path: VaultPath) {
-    await this.#run('Delete', () => removeEntry(this.#root(), path));
+    await this.#run('Delete', async () => {
+      await removeEntry(this.#root(), path);
+      notebookIndex.removed(this.#open().id, path);
+    });
+  }
+
+  /** Moves or renames an entry of the open vault, keeping the notebook index in step. */
+  async #move(from: VaultPath, toDir: VaultPath, name: string) {
+    await moveEntry(this.#root(), from, toDir, name);
+    notebookIndex.moved(this.#open().id, from, joinPath(toDir, name));
   }
 
   /** Copies PDFs picked from anywhere into `dir`, never overwriting. */
