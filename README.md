@@ -82,7 +82,7 @@ The local server (`scripts/serve.mjs`) sends the policy as a header and adds `fr
 
 ## How it was built
 
-Mikel González Tejero designed, directed, reviewed and tested Estudio. Claude agents (Anthropic), working through Claude Code, wrote most of the code. The session log, [docs/BITACORA.md](docs/BITACORA.md), records what was built, what was decided and why, and how each change was checked. The design and data model are in [docs/DESIGN.md](docs/DESIGN.md). 376 automated tests cover the pure modules, from the scheduler and the annotation merge to the notes format.
+Mikel González Tejero designed, directed, reviewed and tested Estudio. Claude agents (Anthropic), working through Claude Code, wrote most of the code. The session log, [docs/BITACORA.md](docs/BITACORA.md), records what was built, what was decided and why, and how each change was checked. The design and data model are in [docs/DESIGN.md](docs/DESIGN.md). 447 automated tests cover the pure modules, from the scheduler and the annotation merge to the notes format.
 
 ## Develop
 

@@ -40,13 +40,21 @@ Todo se queda en tu ordenador. Estudio no pide cuenta ni contraseña, no envía 
 
 Estudio se abre en el navegador (Edge o Chrome) y se instala como una aplicación más. Una vez instalado, tiene su propio icono en el menú Inicio y su propia ventana.
 
-### En un PC con Windows
+### Desde la dirección web (la forma normal)
 
-Si Mikel te lo ha preparado, ya lo tendrás en el menú Inicio: busca **Estudio**. Si no, hay dos formas de instalarlo.
+Sirve para cualquier ordenador, tablet o móvil. La dirección web de Estudio es:
 
-**Desde la dirección web.** Es la forma más sencilla. Mira el apartado siguiente.
+**<https://mikel-gonzalezt.github.io/estudio/>**
 
-**Desde el código.** Es la forma que usa Mikel en su propio ordenador. Necesitas tener instalado Node.js, un programa que prepara la aplicación.
+1. Abre esa dirección en Edge o en Chrome.
+2. Pulsa **Install Estudio**, arriba en la pantalla de inicio.
+3. Si no ves ese botón, abre el menú del navegador (los tres puntos de arriba a la derecha) y busca **Aplicaciones › Instalar este sitio como una aplicación** en Edge, o **Instalar Estudio** en Chrome.
+
+En un iPad, Safari no muestra ese botón. Pulsa el botón de compartir (el cuadrado con una flecha hacia arriba) y elige **Añadir a pantalla de inicio**.
+
+### Desde el código (solo para usuarios avanzados)
+
+Si prefieres que la aplicación se sirva desde tu propio ordenador con Windows, necesitas tener instalado Node.js, un programa que prepara la aplicación.
 
 1. Descarga la carpeta del proyecto.
 2. Abre PowerShell dentro de esa carpeta. PowerShell es la ventana azul o negra de Windows donde se escriben órdenes.
@@ -61,17 +69,7 @@ Si Mikel te lo ha preparado, ya lo tendrás en el menú Inicio: busca **Estudio*
 
 A partir de ahí abre Estudio desde el menú Inicio. No hace falta volver a hacer nada de esto, salvo para actualizarlo.
 
-### En otro dispositivo, desde la dirección web
-
-La dirección web de Estudio es:
-
-**<https://mikel-gonzalezt.github.io/estudio/>**
-
-1. Abre esa dirección en Edge o en Chrome.
-2. Pulsa **Install Estudio**, arriba en la pantalla de inicio.
-3. Si no ves ese botón, abre el menú del navegador (los tres puntos de arriba a la derecha) y busca **Aplicaciones › Instalar este sitio como una aplicación** en Edge, o **Instalar Estudio** en Chrome.
-
-En un iPad, Safari no muestra ese botón. Pulsa el botón de compartir (el cuadrado con una flecha hacia arriba) y elige **Añadir a pantalla de inicio**.
+Aunque la abras desde una dirección de internet, los PDF y los apuntes no se suben a ningún sitio: se quedan en tu dispositivo, dentro del navegador. Cada persona y cada dispositivo tiene los suyos, y nadie más puede verlos.
 
 Lo que guardes en la versión web no aparece en la que instalaste con el script, ni al revés. El navegador guarda por separado los datos de cada dirección.
 
