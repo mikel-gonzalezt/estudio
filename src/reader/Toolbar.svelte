@@ -137,8 +137,9 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
   }
-  .group { display: flex; align-items: center; gap: 2px; min-width: 0; }
-  .center { flex: 1; justify-content: center; }
+  .group { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+  .group:first-child { flex: 0 1 auto; min-width: 0; }
+  .center { flex: 1 0 auto; justify-content: center; }
   .title { flex: 0 1 auto; min-width: 3em; font-weight: 600; margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
   .zoom { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
   .mode { font-size: 12px; padding: 3px 4px; margin-left: 4px; }
