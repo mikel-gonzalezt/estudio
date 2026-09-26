@@ -3,6 +3,8 @@
   import { COLOR_HEX, type TextMarkupKind } from '../lib/types';
   import type { SelectionMenu } from './annotator.svelte';
   import type { Reader } from './session.svelte';
+  import { app } from '../lib/app.svelte';
+  import { readAloud } from './speech/entry.svelte';
 
   let { reader, menu }: { reader: Reader; menu: SelectionMenu } = $props();
   const ann = $derived(reader.ann);
@@ -50,6 +52,7 @@
   <button title="Quote to notebook" onclick={quote}><Icon name="quote" size={16} /><span>Quote</span></button>
   <button title="Make a flashcard" onclick={card}><Icon name="card" size={16} /><span>Card</span></button>
   <button title="Copy text" onclick={copy}><Icon name="copy" size={16} /></button>
+  {#if app.settings.readAloud}<button title="Read aloud from here" onmousedown={(e) => e.preventDefault()} onclick={() => { readAloud.start(reader, 'here'); done(); }} data-testid="read-from-here"><Icon name="speak" size={16} /></button>{/if}
 </div>
 
 <style>

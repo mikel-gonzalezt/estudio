@@ -6,6 +6,7 @@
   import { TOOL_IDS, TOOLS } from './tools';
   import { exportMarkdownFile, exportNotesDocxFile, exportNotesFile, exportPdfFile, printNotesFile } from './exports';
   import { downloadBackup } from '../lib/backupio';
+  import { readAloud } from './speech/entry.svelte';
 
   let { reader }: { reader: Reader } = $props();
   const ann = $derived(reader.ann);
@@ -96,6 +97,7 @@
     <button title="Zoom in (Ctrl +)" onclick={() => reader.zoomStep(1)}><Icon name="zoomIn" /></button>
     <button title="Fit width (Ctrl 0)" onclick={() => reader.fitWidth()}><Icon name="fitWidth" /></button>
     <button title="Find (/)" onclick={() => reader.search.show()}><Icon name="search" /></button>
+    {#if app.settings.readAloud}<button title="Read aloud from the selection or this page (l)" aria-label="Read aloud" class:on={readAloud.active} onclick={() => readAloud.toggle(reader)} data-testid="read-aloud"><Icon name="speak" /></button>{/if}
     <div class="view-inline">{@render viewControls()}</div>
     <div class="menu-wrap view-more">
       <button title="More view options" class:on={moreOpen} onclick={() => (moreOpen = !moreOpen)}><Icon name="more" /></button>
