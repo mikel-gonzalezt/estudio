@@ -1,5 +1,6 @@
-import { cardsFor, countDue, deleteCard, putCard } from '../lib/db';
+import { cardsFor, countDue, deleteCard, getAttachment, putCard } from '../lib/db';
 import { newSrs } from '../lib/fsrs';
+import { attachmentId, figureMarkdown, imageRefs, refFrom, rewriteAttachmentRefs, writeAttachment } from '../lib/attachments';
 import { appendBlock, quoteBlock } from '../lib/notebook';
 import { app, type VaultPlace } from '../lib/app.svelte';
 import { notebookIndex } from '../lib/notebookindex';
@@ -126,7 +127,8 @@ export class Study {
 
   /**
    * Writes a database notebook into `folder` as `<pdf name>.md` with its frontmatter, its page
-   * links naming the PDF for Obsidian, and keeps editing it there.
+   * links naming the PDF for Obsidian and its images written to `attachments/` beside it, and
+   * keeps editing it there.
    */
   async moveToVault(folder: VaultFolder, pdfName: string): Promise<void> {
     const root = notebookIndex.root(folder.vault);
@@ -137,7 +139,13 @@ export class Study {
       path: await freePath(root, joinPath(folder.dir, `${stemOf(pdfName)}.md`)),
     };
     const store = storeFor(home)!;
-    const text = namePageLinks(this.notebook.markdown, pdfName);
+    const moved = new Map<string, string>();
+    for (const r of imageRefs(this.notebook.markdown)) {
+      const id = attachmentId(r.src);
+      const att = id && !moved.has(id) ? await getAttachment(id) : undefined;
+      if (att) moved.set(att.id, refFrom(home.path, await writeAttachment(root, home.path, att.blob, att.name)));
+    }
+    const text = rewriteAttachmentRefs(namePageLinks(this.notebook.markdown, pdfName), (id) => moved.get(id));
     await store.save(text, true);
     this.notebook.rehome(store, filesFor(home), pdfName);
     this.home = home;
@@ -163,6 +171,13 @@ export class Study {
   quote(text: string, page: number, comment = '') {
     const block = quoteBlock(text, page, this.notebook.pdfName) + (comment ? `\n${comment}\n` : '');
     this.notebook.edit(appendBlock(this.notebook.markdown, block));
+    this.showRight('notebook');
+  }
+
+  /** Appends a figure (a PNG of a clipped region) with a link to its page, stored as the notebook's images are. */
+  async figure(png: Blob, page: number) {
+    const src = await this.notebook.files.save(png);
+    this.notebook.edit(appendBlock(this.notebook.markdown, `${figureMarkdown(src, page, this.notebook.pdfName)}\n`));
     this.showRight('notebook');
   }
 

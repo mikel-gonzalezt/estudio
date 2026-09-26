@@ -1,6 +1,7 @@
 import { AnnotationMode, GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import type { Rotation } from '../lib/geometry';
+import { rectPageToDisplay, type Rotation } from '../lib/geometry';
+import type { Rect } from '../lib/types';
 import type { TextRun } from '../lib/citation';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -85,3 +86,24 @@ export async function outline(pdf: PDFDocumentProxy): Promise<OutlineNode[]> {
 }
 
 export type { PDFDocumentProxy, PDFPageProxy };
+
+/**
+ * The region `rect` (page space, normalised) of a page as a PNG, drawn at `scale` device pixels
+ * per point: 2 gives a figure sharp enough for notes and print.
+ */
+export async function renderRegion(page: PDFPageProxy, info: PageInfo, rect: Rect, scale = 2): Promise<Blob> {
+  const viewport = page.getViewport({ scale });
+  const r = rectPageToDisplay(rect, info.rotation);
+  const x = Math.floor(r.x * viewport.width);
+  const y = Math.floor(r.y * viewport.height);
+  const w = Math.max(1, Math.ceil(r.w * viewport.width));
+  const h = Math.max(1, Math.ceil(r.h * viewport.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+  await page.render({ canvas, viewport, transform: [1, 0, 0, 1, -x, -y], annotationMode: ANNOTATION_MODE }).promise;
+  return new Promise((ok, fail) => canvas.toBlob((b) => (b ? ok(b) : fail(new Error('The clip could not be drawn.'))), 'image/png'));
+}

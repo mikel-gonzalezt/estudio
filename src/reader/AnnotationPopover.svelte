@@ -5,7 +5,7 @@
   import { app } from '../lib/app.svelte';
   import { pageToDisplay } from '../lib/geometry';
   import { annotationAnchor, annotationText, COLOR_HEX, COLOR_IDS, KIND_LABEL, type ColorId, type StoredAnnotation } from '../lib/types';
-  import { displaySize } from './pdf';
+  import { displaySize, renderRegion } from './pdf';
   import type { Reader } from './session.svelte';
 
   let { reader, a }: { reader: Reader; a: StoredAnnotation } = $props();
@@ -48,6 +48,24 @@
     reader.study.quote(body || note || KIND_LABEL[x.kind], x.page, body ? note.trim() : '');
   }
 
+  let sending = $state(false);
+
+  /** Draws the clipped region at twice its size and adds it to the notebook with its page link. */
+  async function toNotes() {
+    const x = untrack(() => a);
+    if (x.kind !== 'area' || sending) return;
+    commit();
+    sending = true;
+    try {
+      const png = await renderRegion(await reader.page(x.page), reader.info[x.page - 1]!, x.rect);
+      await reader.study.figure(png, x.page);
+    } catch (e) {
+      alert(`The figure could not be added: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      sending = false;
+    }
+  }
+
   function card() {
     commit();
     reader.study.draft = { page: initial.page, text: sourceText(), annId: id, cloze: false };
@@ -86,7 +104,11 @@
   <input type="text" bind:value={tags} onblur={commit} onkeydown={(e) => { if (e.key === 'Enter') commit(); }} placeholder="Tags, comma separated" />
 
   <footer>
-    <button class="act" onclick={quote} title="Quote to notebook"><Icon name="quote" size={16} /> Quote</button>
+    {#if a.kind === 'area'}
+      <button class="act" onclick={() => void toNotes()} disabled={sending} title="Add this clip to the notebook as an image" data-testid="send-to-notes"><Icon name="notebook" size={16} /> Send to notes</button>
+    {:else}
+      <button class="act" onclick={quote} title="Quote to notebook"><Icon name="quote" size={16} /> Quote</button>
+    {/if}
     <button class="act" onclick={card} title="Make a flashcard"><Icon name="card" size={16} /> Card</button>
     <div class="grow"></div>
     <button class="danger" title="Delete (Del)" onclick={() => ann.remove(a.id)}><Icon name="trash" size={16} /></button>
