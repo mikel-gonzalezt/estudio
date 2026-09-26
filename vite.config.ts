@@ -59,7 +59,7 @@ export default defineConfig({
     cspMeta(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['icon.svg', 'icon.ico'],
+      includeAssets: ['icon.svg', 'icon.ico', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'],
       manifest: {
         name: 'Estudio',
         short_name: 'Estudio',
@@ -67,8 +67,23 @@ export default defineConfig({
         theme_color: '#2f5d50',
         background_color: '#f6f5f1',
         display: 'standalone',
-        icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
-        file_handlers: [{ action: base, accept: { 'application/pdf': ['.pdf'] } }],
+        // Windows draws app and file-type icons from raster images; an SVG alone leaves PDFs blank in Explorer.
+        icons: [
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+        ],
+        file_handlers: [
+          {
+            action: base,
+            accept: { 'application/pdf': ['.pdf'] },
+            icons: [
+              { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+              { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
+            ],
+          },
+        ],
         // A PDF opened from Explorer goes to the window that is already open, through launchQueue.
         launch_handler: { client_mode: ['focus-existing', 'auto'] },
       },
