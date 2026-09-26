@@ -49,6 +49,8 @@
     try {
       const r = await study.moveBesidePdf(pdf, reader.doc.fileName);
       if (r === 'elsewhere') error = `That folder does not hold "${reader.doc.fileName}". Pick the folder the PDF is in. Nothing was saved.`;
+      // Edge refuses Downloads, Desktop and Documents themselves ("contains system files"), and the refusal reaches us only as a cancel.
+      else if (r === 'cancelled') error = 'No folder was chosen, so the notebook stays inside Estudio. Edge never allows Downloads, Desktop or Documents themselves: keep the PDF in a folder inside them (for example Downloads\\Estudio), or use "In a vault folder…".';
     } catch (e) {
       error = `The notebook stays inside Estudio: ${e instanceof Error ? e.message : String(e)}`;
     } finally {
