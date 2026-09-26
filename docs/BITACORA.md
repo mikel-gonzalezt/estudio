@@ -44,6 +44,23 @@ Estudio is a study-focused PDF reader that runs as an installed Edge app (PWA) o
 
 Read this file first. Suggested order: a small settings screen; then whatever real use shows is missing; then OCR, if scanned material becomes common.
 
+## 2026-09-26, session 7
+
+### Findings
+
+- **Downloads can't be picked.** Edge never grants folder access to Downloads, Desktop, Documents or the user folder themselves; it says they contain system files. Folders inside them work. This is a browser rule, and only a native (Tauri) build could lift it. After a cancelled or refused pick, the location menu now explains this and suggests a subfolder such as `Downloads\Estudio`, or a vault folder.
+- **Performance, measured on the production build in headless Edge.**
+
+  | | 15-page paper | 900-page, 110 MB PDF |
+  |---|---|---|
+  | Library appears | 0.09 s | 0.08 s |
+  | First page and text visible | 0.31 s | 0.97 s |
+  | Jump to middle | 0.16 s | 0.55 s |
+  | JS heap | 4 MB | 15 MB |
+  | DOM nodes | 1,770 | 21,051 |
+
+  **Conclusion:** already fast for normal documents. Two optional optimizations would help only huge books: stop loading every page before the first render (`src/reader/open.ts:36`, about 0.6 s saved at 900 pages), and build full page layers only near the viewport (far fewer DOM nodes, smoother scrolling). Offered to the user; not done unless they study from long textbooks.
+
 ## 2026-09-26, session 6
 
 ### Fixed
