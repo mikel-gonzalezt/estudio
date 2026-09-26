@@ -4,6 +4,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { VitePWA } from 'vite-plugin-pwa';
 import { cpSync, createReadStream, existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { CSP } from './scripts/csp.mjs';
 
 /** Files fetched at runtime by URL, so they are served and copied as plain files: served path → source folder. */
 const STATIC_DIRS: Record<string, string> = {
@@ -38,10 +39,20 @@ function staticDirs(): Plugin {
   };
 }
 
+/** The built page carries its CSP as a <meta> tag, first in <head>, so hosts that cannot set headers still apply it. */
+function cspMeta(): Plugin {
+  return {
+    name: 'csp-meta',
+    apply: 'build',
+    transformIndexHtml: () => [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: CSP }, injectTo: 'head-prepend' }],
+  };
+}
+
 export default defineConfig({
   plugins: [
     svelte(),
     staticDirs(),
+    cspMeta(),
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['icon.svg', 'icon.ico'],
