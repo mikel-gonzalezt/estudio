@@ -1,6 +1,7 @@
 import { Marked } from 'marked';
 import { blockMathAt, inlineMathAt } from './mathsyntax';
 import { chipText, formatPageLink, pageLinkAtStart, parsePageLinks } from './pagelink';
+import { safeHref } from './safeurl';
 
 /** Drag payload for quoting an annotation or a PDF selection into the notebook. */
 export const QUOTE_MIME = 'application/x-estudio-quote';
@@ -50,6 +51,13 @@ function makeMarked(plainLinks: boolean) {
       // Raw HTML in notes is shown as text: notebooks can come from imported backups.
       html: ({ text }) => escapeHtml(text),
       image: ({ href, text, title }) => imgTag(href, text, title),
+      link({ href, title, text, tokens, autolink }) {
+        const inner = autolink ? escapeHtml(text) : this.parser.parseInline(tokens);
+        const safe = safeHref(href);
+        if (!safe) return inner;
+        const external = safe.startsWith('#') ? '' : ' target="_blank" rel="noopener noreferrer"';
+        return `<a href="${escapeHtml(safe)}"${title ? ` title="${escapeHtml(title)}"` : ''}${external}>${inner}</a>`;
+      },
     },
     extensions: [
       {
@@ -114,7 +122,5 @@ const md = makeMarked(false);
 let printMd: Marked | undefined;
 
 export function renderMarkdown(markdown: string, opts: { plainLinks?: boolean } = {}): string {
-  const html = (opts.plainLinks ? (printMd ??= makeMarked(true)) : md).parse(markdown, { async: false });
-  // Links written by the user must not run script.
-  return html.replace(/href="\s*javascript:[^"]*"/gi, 'href="#"');
+  return (opts.plainLinks ? (printMd ??= makeMarked(true)) : md).parse(markdown, { async: false });
 }

@@ -1,5 +1,6 @@
 import type { NoteFiles } from '../../lib/attachments';
 import type { NotebookContext } from '../../lib/notebooksync';
+import { isExternal, safeHref } from '../../lib/safeurl';
 import type { NotebookHost } from './host.svelte';
 
 /** What either editor (Markdown or Document mode) is given by the notebook around it. */
@@ -47,3 +48,9 @@ export function linkOptions({ page, sections, annotations }: NotebookContext, qu
 
 /** Image files carried by a paste or a drop, such as a screenshot or a file from Explorer. */
 export const imageFiles = (dt: DataTransfer | null) => [...(dt?.files ?? [])].filter((f) => f.type.startsWith('image/'));
+
+/** Opens a link from a note in a new tab without an opener; the app window itself never navigates. */
+export function openLink(a: HTMLAnchorElement) {
+  const href = safeHref(a.getAttribute('href') ?? '');
+  if (href && isExternal(href)) window.open(href, '_blank', 'noopener,noreferrer');
+}

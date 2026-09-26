@@ -29,6 +29,7 @@ import { gfm } from 'micromark-extension-gfm';
 import { math } from 'micromark-extension-math';
 import { splitFrontmatter } from '../frontmatter';
 import { chipText, pageLinkPattern } from '../pagelink';
+import { isExternal, safeHref } from '../safeurl';
 import { renderFormulaPng } from './formulapng';
 import { latexToOmml, type XmlNode } from './omml';
 
@@ -209,8 +210,6 @@ function raw(n: XmlNode): ParagraphChild {
   return c as unknown as ParagraphChild;
 }
 
-const isExternal = (url: string) => /^(https?:|mailto:)/i.test(url);
-
 class Writer {
   #ordered = 0;
   readonly #defs = new Map<string, string>();
@@ -278,8 +277,9 @@ class Writer {
   }
 
   async #link(url: string, children: PhrasingContent[], s: RunStyle, ctx: Ctx): Promise<ParagraphChild[]> {
-    if (!isExternal(url)) return this.inline(children, s, ctx);
-    return [new ExternalHyperlink({ link: url, children: await this.inline(children, { ...s, link: true }, ctx) })];
+    const href = safeHref(url);
+    if (!href || !isExternal(href)) return this.inline(children, s, ctx);
+    return [new ExternalHyperlink({ link: href, children: await this.inline(children, { ...s, link: true }, ctx) })];
   }
 
   async inline(nodes: PhrasingContent[], s: RunStyle, ctx: Ctx): Promise<ParagraphChild[]> {

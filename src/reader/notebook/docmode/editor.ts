@@ -6,7 +6,7 @@ import type { EditorView } from '@tiptap/pm/view';
 import { quoteBlock, QUOTE_MIME, type QuoteDrag } from '../../../lib/notebook';
 import { formatPageLink, isFirstKeystroke, pageLinkAtStart } from '../../../lib/pagelink';
 import { formula, type Formula } from '../formula.svelte';
-import { GROUP_NAMES, imageFiles, LINK_QUERY, linkOptions, type EditorHooks, type LinkOption, type NotebookEditor } from '../links';
+import { GROUP_NAMES, imageFiles, LINK_QUERY, linkOptions, openLink, type EditorHooks, type LinkOption, type NotebookEditor } from '../links';
 import { DocMarkdown, type Parsed } from './markdown';
 import { docExtensions, type DocViews } from './schema';
 
@@ -33,6 +33,15 @@ function pageAbove(doc: PMNode, pos: number): number | null {
     if (n.type.name === 'pageLink') page = n.attrs.page as number;
   });
   return page;
+}
+
+/** A link in the editor never navigates the window; Ctrl+click or a middle click opens it in a new tab. */
+function onLinkClick(e: MouseEvent): boolean {
+  const a = (e.target as Element).closest?.<HTMLAnchorElement>('a[href]');
+  if (!a || e.button === 2) return false;
+  e.preventDefault();
+  if (e.button === 1 || e.ctrlKey || e.metaKey) openLink(a);
+  return false;
 }
 
 const inQuote = ($pos: ResolvedPos) => {
@@ -354,6 +363,8 @@ export function createDocEditor(parent: HTMLElement, text: string, hooks: Editor
         return true;
       },
       handleDOMEvents: {
+        click: (_view, e) => onLinkClick(e),
+        auxclick: (_view, e) => onLinkClick(e),
         dragover(_view, e) {
           if (!e.dataTransfer?.types.includes(QUOTE_MIME) && !e.dataTransfer?.types.includes('Files')) return false;
           e.preventDefault();

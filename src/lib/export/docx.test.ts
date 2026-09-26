@@ -84,13 +84,14 @@ describe('notesToDocx', () => {
   });
 
   it('writes external links as hyperlinks', async () => {
-    const zip = await unzip('[site](https://example.com) and [ref][r]\n\n[r]: https://ref.org');
+    const zip = await unzip('[site](https://example.com) and [ref][r] and [bad](javascript&#58;alert(1))\n\n[r]: https://ref.org');
     const xml = await zip.file('word/document.xml')!.async('string');
     expect(xml).toMatch(/<w:hyperlink [^>]*r:id="[^"]+"[^]*?<w:rStyle w:val="Hyperlink"\/>[^]*?>site<\/w:t>/);
     expect(await zip.file('word/styles.xml')!.async('string')).toContain('w:styleId="Hyperlink"');
     const rels = await zip.file('word/_rels/document.xml.rels')!.async('string');
-    expect(rels).toMatch(/Target="https:\/\/example.com" TargetMode="External"/);
-    expect(rels).toMatch(/Target="https:\/\/ref.org" TargetMode="External"/);
+    expect(rels).toMatch(/Target="https:\/\/example.com\/" TargetMode="External"/);
+    expect(rels).not.toContain('javascript');
+    expect(rels).toMatch(/Target="https:\/\/ref.org\/" TargetMode="External"/);
   });
 
   it('writes bullet, numbered and nested lists with numbering levels', async () => {

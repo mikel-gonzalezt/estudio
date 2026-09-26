@@ -10,6 +10,7 @@
   import type { EditorMode } from '../../lib/types';
   import Editor from './Editor.svelte';
   import FormulaDialog from './FormulaDialog.svelte';
+  import { openLink } from './links';
 
   let {
     doc, host, autoLinks, onAutoLinks, editorMode, onEditorMode, actions, autofocus = false,
@@ -49,11 +50,11 @@
 
   function onPreviewClick(e: MouseEvent) {
     const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a');
-    if (!a) return;
+    if (!a || e.button === 2) return;
     e.preventDefault();
     const page = a.dataset.page;
     if (page) host.follow({ page: Number(page), file: a.dataset.file ?? null });
-    else if (/^https?:/i.test(a.href)) window.open(a.href, '_blank', 'noopener');
+    else openLink(a);
   }
 </script>
 
@@ -100,7 +101,7 @@
   {/if}
   {#if mode !== 'write'}
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-    <div class="preview notes-html scroll-thin" onclick={onPreviewClick} use:hydrate={html} data-testid="notebook-preview">
+    <div class="preview notes-html scroll-thin" onclick={onPreviewClick} onauxclick={onPreviewClick} use:hydrate={html} data-testid="notebook-preview">
       {#if doc.markdown.trim()}{@html html}{:else}<p class="muted">Nothing here yet. Type <code>[[</code> to link a page or section.</p>{/if}
     </div>
   {/if}

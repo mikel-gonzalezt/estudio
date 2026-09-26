@@ -13,3 +13,10 @@ describe('mathError', () => {
     expect(mathError(katex, String.raw`\frac{a}`, false)).toMatch(/^Unexpected end of input/);
   });
 });
+
+describe('untrusted commands', () => {
+  it.each([String.raw`\href{javascript:alert(1)}{x}`, String.raw`\url{javascript:alert(1)}`, String.raw`\htmlData{onclick=alert(1)}{x}`])('%s makes no link or attribute', (latex) => {
+    const html = katex.renderToString(latex, { throwOnError: false, output: 'html' });
+    expect(html).not.toMatch(/<a\b|javascript:|onclick/);
+  });
+});

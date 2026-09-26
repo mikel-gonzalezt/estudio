@@ -11,6 +11,7 @@ import { renderMath } from '../../../lib/katex';
 import { formatTable } from '../../../lib/mdtable';
 import { blockMathAt, formatBlockMath, formatInlineMath, inlineMathAt } from '../../../lib/mathsyntax';
 import { chipText, formatPageLink, pageLinkAtStart, type LinkTarget } from '../../../lib/pagelink';
+import { safeHref } from '../../../lib/safeurl';
 
 /** What the node views reach outside the editor for. Absent when only parsing and serialising. */
 export interface DocViews {
@@ -250,7 +251,13 @@ export function docExtensions(views: DocViews | null = null): AnyExtension[] {
   return [
     StarterKit.configure({
       underline: false,
-      link: { openOnClick: false, autolink: false, linkOnPaste: true },
+      link: {
+        openOnClick: false,
+        autolink: false,
+        linkOnPaste: true,
+        isAllowedUri: (url) => safeHref(url) !== null,
+        HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' },
+      },
       heading: { levels: [1, 2, 3, 4, 5, 6] },
       trailingNode: false,
       hardBreak: false,
