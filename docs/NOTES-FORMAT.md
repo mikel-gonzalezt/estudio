@@ -31,7 +31,7 @@ Optional YAML block at the top. Estudio owns `estudio-doc` and `pdf`; every othe
 - A notebook stored inside Estudio (IndexedDB) keeps image bytes in the `attachments` store and references them as `![](estudio-attachment:<id>)`. "Move notebook to a vault" writes those out as files and rewrites the references.
 - A figure clipped from the PDF is inserted as an image followed by its page link on the same line: `![Figure](attachments/…png) [[p4]]`.
 
-All consumers resolve images through one function:
+All consumers resolve images through one function, exported from `src/lib/attachments.ts` (a note's `NoteFiles.resolve`):
 
 ```ts
 type ResolvedImage = { bytes: Uint8Array; mime: string; width: number; height: number };
@@ -39,3 +39,12 @@ type ImageResolver = (src: string) => Promise<ResolvedImage | null>;
 ```
 
 `src` is exactly what is inside the parentheses (or the `![[…]]` target). Resolution is relative to the note's folder, then the vault root, then any file in the vault with that name.
+
+## Whitespace and normalisation
+
+Document mode keeps the source of every top-level block the user did not edit, byte for byte, and the frontmatter verbatim. Only a block the user edited is written again, in the writer forms above:
+
+- Once any block is edited, the body's line endings are written as `\n`.
+- A table's cells are padded so the pipes line up; alignment is written as colons in the `---` row.
+- `__b__` and `_i_` become `**b**` and `*i*`; lists use `-` and `1.`, nested by 4 spaces; a line break inside a paragraph is a plain newline.
+- A backslash escape is written only where the text would otherwise read as markup. A lone `$` is written without one (`\$5` becomes `$5`); two `$` in one run of text are escaped.

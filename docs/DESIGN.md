@@ -14,7 +14,8 @@
 - `idb` for IndexedDB.
 - `pdf-lib` for reading and writing annotations inside PDF files. It runs in a Web Worker (`src/lib/pdfannots.worker.ts`) when saving to a file, and is loaded with dynamic `import()` for exports; it is never in the initial chunk.
 - `vite-plugin-pwa` for the service worker and manifest.
-- CodeMirror 6 (`@codemirror/*`) for the notebook editor, loaded with dynamic `import()` the first time an editor mounts. `markdownLanguage` is used instead of `markdown()` so `@codemirror/lang-html` stays out of the bundle.
+- CodeMirror 6 (`@codemirror/*`) for the notebook's Markdown mode, loaded with dynamic `import()` the first time an editor mounts. `markdownLanguage` is used instead of `markdown()` so `@codemirror/lang-html` stays out of the bundle.
+- TipTap 3 (`@tiptap/*`, ProseMirror underneath) with `@tiptap/markdown` for the notebook's Document mode, KaTeX for typeset maths, MathLive for the visual formula editor. Each is loaded with dynamic `import()` on first use; none is in the initial chunk (see Notebook editing).
 - Vitest for pure logic (scheduler, geometry, exporters). Playwright for end-to-end.
 
 Why not Electron: 150 MB+ per install and slow cold start, against goal 2. Why not Tauri yet: needs Rust + MSVC on the dev machine; the web core is written so wrapping it later is a config change, not a rewrite.
@@ -64,7 +65,7 @@ interface Card {
 }
 ```
 
-IndexedDB stores (version 2): `docs`, `annotations` (index `docId`), `notebooks`, `cards` (indexes `docId`, `due`), `settings`, `handles`, `vaults`.
+IndexedDB stores (version 3): `docs`, `annotations` (index `docId`), `notebooks`, `cards` (indexes `docId`, `due`), `settings`, `handles`, `vaults`, `attachments` (images of notebooks kept in IndexedDB: `{ id, blob, name, createdAt }`).
 
 ## Files, saving and identity
 
@@ -117,6 +118,55 @@ PDFs and notes can live apart, for example PDFs in one vault and notes in an Obs
 - While a document is open, its store asks the index where the file is before each save. A note moved or renamed in Estudio's Files tree keeps being written in its new place, and a note that vanished is looked for again before it would be recreated.
 - Renaming or moving a PDF in the Files tree still takes a same-named `.md` beside it along. A notebook kept elsewhere stays where it is; its `pdf:` property is refreshed on its next save.
 
+## Notebook editing
+
+Notes stay Markdown (the contract is `docs/NOTES-FORMAT.md`). There are two ways to edit the same text, chosen by the Document / Markdown switch in the notebook header and stored in settings (`editorMode`, default `document`):
+
+- Markdown mode is the CodeMirror editor (`src/reader/notebook/cm.ts`).
+- Document mode (`src/reader/notebook/docmode/`) is a WYSIWYG editor with a formatting toolbar. It and everything it needs are loaded with dynamic `import()` the first time it is shown.
+
+Both editors take the same `EditorHooks` and return the same `NotebookEditor` (`src/reader/notebook/links.ts`), so the notebook's `NotebookDoc`, pop-out sync, saving and vault handling do not know which one is showing. Link suggestions after `[[` (`linkOptions`), every new link (`formatPageLink`), auto page links (`isFirstKeystroke` and the `pageAbove` rule), dropped quotes (`quoteBlock`) and image paste (`imageFiles`, `NoteFiles.save`) are shared code; each editor only adapts them to its own document model.
+
+### Choosing the Document-mode editor
+
+A time-boxed spike compared Milkdown 7.22 and TipTap 3.31 with `@tiptap/markdown`, on a corpus with one entry per row of NOTES-FORMAT.md, before any custom nodes were written.
+
+| Criterion (in order) | Milkdown (kit: commonmark + gfm, or the Crepe preset) | TipTap + `@tiptap/markdown` |
+|---|---|---|
+| Round trip, parse then serialise, out of the box | 5 of 16 unchanged. Bullets and tasks written with `*`, rules as `***` (both configurable), page links escaped (`\[\[p3]]`), tables re-padded, and parsing an image without a title threw. | 9 of 16 unchanged. Nested lists indented by 2 (configurable to 4), page links escaped, tables re-padded. |
+| Custom inline node (page-link chip) | A micromark syntax extension plus mdast handlers for remark: a second grammar to keep in step with the preview's marked tokenizer. | `markdownTokenizer` takes a marked tokenizer, the same library and patterns the preview uses (`pageLinkAtStart`, `inlineMathAt`); `parseMarkdown` and `renderMarkdown` are a few lines each. |
+| Table editing | prosemirror-tables; a table UI only in Crepe. | prosemirror-tables through TableKit: Tab and Shift+Tab, add and delete rows and columns as commands. |
+| Lazy bundle (gzip) | Kit about 150 kB; Crepe about 400 kB plus CodeMirror language chunks. | About 171 kB in the spike; the shipped Document-mode chunk is 149 kB. |
+
+TipTap was chosen. It round-trips more of the format as shipped, its custom nodes reuse the preview's tokenizers, and it costs about the same as Milkdown's kit. Crepe, the Milkdown preset with tables and maths built in, is more than twice the size.
+
+### Keeping notes as they were written
+
+No Markdown serialiser reproduces every source byte, so Document mode does not rely on one for text the user did not touch.
+
+- Parsing (`DocMarkdown.parse` in `docmode/markdown.ts`) splits the body into top-level blocks with the marked lexer. Each block keeps its source, with the blank lines after it, and the nodes it parsed into. The frontmatter is kept verbatim and never shown.
+- Serialising walks the document's top-level nodes. A node that is structurally equal (`Node.eq`) to a parsed block's nodes writes that block's source; anything else is written fresh by the serialiser. An untouched note therefore comes back byte for byte, and an edit rewrites only its own block.
+- The editor serialises only after a transaction the user made. Loading a note, switching modes and text arriving from the pop-out never write.
+- The corpus test (`docmode/markdown.test.ts`) checks both halves: every entry round-trips unchanged, and the fresh serialiser writes each syntax in the contract's form, apart from the normalisations NOTES-FORMAT.md lists.
+- Fresh text is escaped only where Markdown would read it as markup (`src/lib/mdescape.ts`), so "a_b", "2 * 3" and "[x]" stay as typed. A test types each awkward literal and reads it back as the same plain text.
+
+Custom nodes live in `docmode/schema.ts`. `pageLink` is an atom chip, clicked to follow. `inlineMath` and `blockMath` are typeset with KaTeX and open the formula editor when clicked. `image` is inline, so `![Figure](…) [[p4]]` stays on one line. `embed` shows `![[name.png]]` and writes it back as it was. The table's cells hold one paragraph, and its Markdown has aligned pipes (`formatTable` in `src/lib/mdtable.ts`, the same function as Markdown mode's Format table). A line break inside a paragraph is written as a newline, as the preview (`breaks: true`) reads it.
+
+### Images
+
+`src/lib/attachments.ts` owns images. `NoteFiles` is where a note's images go and how its references resolve. Every consumer gets the `ImageResolver` described in NOTES-FORMAT.md from `NoteFiles.resolve` (bytes, MIME type, pixel size).
+
+- `vaultFiles` writes `attachments/Pasted image YYYYMMDDHHmmss.png` beside the note (a free `name (2).png` when taken) and returns a relative, `%20`-encoded reference. It resolves a reference against the note's folder, then the vault root, then any file in the vault with that name. It reads the note's current path on each use, so a notebook moved in the Files tree keeps working.
+- `dbFiles` keeps images of an IndexedDB notebook in the `attachments` store and writes `estudio-attachment:<id>`. "Move notebook to a vault…" writes each referenced attachment into the destination's `attachments/` and rewrites the references (`rewriteAttachmentRefs`, tested).
+- The preview renders local images with `data-src`; `hydrateNotes` (`src/lib/hydrate.ts`) swaps in object URLs and typesets maths. Markdown mode shows each image as a block widget below its line; Document mode shows it in place.
+- An area clip's "Send to notes" renders the region from pdf.js at 2 device pixels per point (`renderRegion` in `src/reader/pdf.ts`) and appends `![Figure](…) [[pN]]`, with the vault link form in a vault notebook.
+
+### Maths, tables and printing
+
+- `src/lib/mathsyntax.ts` is the one reader of `$…$` and `$$…$$`, used by the preview's tokenizer, Document mode's tokenizer and Markdown mode's widgets. KaTeX (`src/lib/katex.ts`) is imported the first time a formula is shown. Markdown mode typesets a formula while no cursor touches it and shows the source when one does.
+- The formula editor (`FormulaDialog.svelte`, `formula.svelte.ts`) is shared by both modes and loads MathLive when it first opens, with MathLive's virtual keyboard shown straight away. Its fonts are copied to `dist/mathlive/fonts/` by the same Vite plugin that copies pdf.js's assets.
+- "Notes as PDF" (`src/reader/printnotes.ts`) renders the notebook with `renderMarkdown(…, { plainLinks: true })`, so page links read "p. 12" or "Intro (p. 12)", waits for images and maths, and calls `window.print()`. A print stylesheet hides the rest of the app.
+
 ## Installing and updating
 
 The manifest registers Estudio for `application/pdf` / `.pdf` (`file_handlers`) with `launch_handler: focus-existing`, so a PDF opened from Explorer arrives through `launchQueue` in the window that is already open. The library shows "Install Estudio" while the browser offers installation. The service worker precaches the app shell, the reader and note chunks, the pdf.js worker, the pdf-lib worker, and pdf.js cmaps, standard fonts and wasm decoders, so the installed app opens and saves PDFs with the local server stopped. Updates use prompt mode: a new version waits while a document is open and is applied (one reload) once the library is showing and pending saves have finished.
@@ -143,7 +193,7 @@ Annotating
 - Annotations sidebar: list with text, note, page; filter by colour, tag, kind; full-text search; click to jump.
 
 Studying
-- Notebook pane per document (markdown, live preview). "Quote to notebook" on any selection or annotation inserts a blockquote with a `[[pN]]` back-link.
+- Notebook pane per document, edited in Document mode (formatted, with a toolbar) or Markdown mode, with a live preview (see Notebook editing). Images, GFM tables and `$…$` / `$$…$$` maths work in both modes and in the preview. "Quote to notebook" on any selection or annotation inserts a blockquote with a `[[pN]]` back-link.
 - Editing works like Obsidian's. Brackets and double quotes close themselves, and typing `*`, `_` or `` ` `` over a selection wraps it. Enter continues bullet, numbered and checkbox lists (renumbering numbered ones), Enter on an empty item ends the list, Backspace after an empty item's marker removes it, and Tab / Shift+Tab indent and outdent. Ctrl+B, Ctrl+I, Ctrl+Shift+X, Ctrl+E and Ctrl+Shift+H toggle bold, italic, strikethrough, inline code and `==highlight==`; Ctrl+Enter toggles a checkbox, and clicking `[ ]` does too. The text transforms are pure functions in `src/lib/mdedit.ts`; the CodeMirror wiring is `src/reader/notebook/mdediting.ts`.
 - A light live preview styles the Markdown without hiding any character: headings are larger, emphasis, strikethrough, highlights and code are styled, and their markers are dimmed. The preview pane renders `==text==` as a highlight.
 - Page links show as compact chips in the editor ("p. 12" or their label). Clicking a chip, or Ctrl/Cmd+clicking link text, jumps the reader. Ctrl+L inserts a link to the page on screen.
@@ -166,6 +216,7 @@ Keyboard and discovery
 
 Export and safety
 - Export highlights + notes + notebook to Markdown (Obsidian-friendly).
+- Print the notebook ("Notes as PDF"): images, tables and typeset maths, page links as "p. N"; the print dialog saves the PDF.
 - Export the notebook alone ("Notes only (.md)"): its text without frontmatter, annotations or cards, with page links turned into plain references, `(p. 12)` or `Intro (p. 12)` for a labelled link (`exportNotes` in `src/lib/export/markdown.ts`).
 - Annotations are saved into the PDF itself when it was opened from disk (see Files, saving and identity), as real annotation objects that Acrobat, Zotero and others show. Export annotated PDF writes the same objects into a copy for files opened without a handle.
 - Full JSON backup and restore of the database.
@@ -180,6 +231,8 @@ Export and safety
 - A vault notebook's body is overwritten on save without checking whether Obsidian changed it meanwhile (its frontmatter is re-read and kept), and renaming a PDF does not rewrite links to it in other notes.
 - Two notes whose frontmatter names the same document: the index keeps the one with the shortest path, in the first vault scanned. Notes moved into a vault by another app while Estudio runs are found when a document's indexed note goes missing, not before.
 - A PDF opened without a handle is rendered with its own annotation objects; if it was exported by Estudio, its annotations are drawn twice.
+- Document mode writes an edited block in the contract's writer forms, so an edit inside a hand-formatted table re-pads its pipes, and `__b__` becomes `**b**` in that block. Untouched blocks are never rewritten.
+- Images cannot be resized in the editor, and an image deleted from a note leaves its file in `attachments/` (and its record in IndexedDB).
 
 ## Later (tablet / mobile / v2)
 

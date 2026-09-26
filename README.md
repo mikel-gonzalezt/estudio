@@ -28,6 +28,20 @@ When a PDF is opened from disk (Open with, Open PDF, drag and drop, or a vault),
 
 **Open vault** turns a folder into a vault, like Obsidian. The Files tree, on the library and in the reader's left sidebar, shows its folders, PDFs and Markdown notes. Right-click (or F2 and Del) to rename and delete, drag to move, and use the tree's toolbar to add notes and folders or import PDFs. A PDF's notebook is a Markdown file whose frontmatter names the PDF (`estudio-doc:` and `pdf: "[[paper.pdf]]"`), and every page link written there names the PDF so Obsidian can follow it (`[[paper.pdf#page=3|p. 3]]`). Because the pairing is in the file, you can move or rename the note anywhere, even into another vault you have opened in Estudio (your Obsidian vault, say), and the PDF still finds it. New notebooks go next to their PDF by default; the notebook's ⋯ menu can send them to a folder of your choice instead, and can move a notebook kept inside Estudio into a vault. Older `<name>.md` notebooks next to their PDF are picked up as before and get the frontmatter on their next save. Other properties you add to a notebook are kept. Notes open in the same editor; clicking a link such as `[[paper.pdf#page=3]]` in a note opens that PDF from the vault at page 3. A link names a file by name or by path; a bare name is looked up next to the note first, then anywhere in the vault.
 
+## Notes
+
+Notebooks and notes are Markdown files, but you do not need to know Markdown. The switch in the notebook header chooses how you edit:
+
+- **Document** (the default) looks like a word processor. Use the toolbar for text style, bold, italic, strikethrough, highlight, code, lists, checklists, quotes, page links, tables, images and formulas. The Markdown shortcuts still work if you type them (`# `, `- `, `1. `, `[ ] `, `**bold**`, `==highlight==`, `$x^2$`).
+- **Markdown** shows the source, with page links as chips, images below their line and formulas typeset while the cursor is elsewhere. **Format table** (Alt+Shift+F) lines up a table's pipes.
+
+Switching modes never changes the text, and a note you only read is never rewritten. When you edit in Document mode, only the paragraphs, lists or tables you touched are written again.
+
+- **Images.** Paste a screenshot or drop an image file into either mode. In a vault it is saved as `attachments/Pasted image <date>.png` beside the note, as Obsidian does; a notebook kept inside Estudio stores it in its database, and **Move notebook to a vault…** writes those images out as files. An area clip's **Send to notes** adds the clipped figure, drawn sharply from the PDF, with a link to its page. Obsidian's `![[image.png]]` embeds are shown too.
+- **Tables.** In Document mode, Tab and Shift+Tab move between cells, Enter in the last row adds a row, and the table toolbar adds or deletes rows and columns.
+- **Formulas.** `Ctrl+M` or the formula button opens a visual formula editor with an on-screen maths keyboard, so you do not need LaTeX. Click a formula to edit it.
+- **Printing.** The download menu's **Notes as PDF** opens the print dialog on a clean copy of the notes, with images, tables and formulas, and page links written as "p. 12". Choose **Save as PDF** there.
+
 ## Develop
 
 Requires Node 20+.
@@ -69,6 +83,8 @@ To install as an app, open the preview or a deployed build in Chrome or Edge and
 | `[[` (in the notebook) | Link the current page, a section or an annotation |
 | `Ctrl+B`, `Ctrl+I`, `Ctrl+Shift+X`, `Ctrl+E`, `Ctrl+Shift+H` (in the notebook) | Bold, italic, strikethrough, inline code, `==highlight==`; pressing again removes it |
 | `Ctrl+Enter` (in the notebook) | Toggle a checkbox on the current line |
+| `Ctrl+M` (in the notebook) | Insert or edit a formula |
+| `Alt+Shift+F` (Markdown mode) | Line up the pipes of the table at the cursor |
 | `Tab` / `Shift+Tab` (in the notebook) | Indent / outdent list items |
 | Arrow keys on a pane handle | Resize the pane (Shift for bigger steps, double-click to reset) |
 | `R` | Review due cards |
@@ -76,7 +92,7 @@ To install as an app, open the preview or a deployed build in Chrome or Edge and
 
 ## Dependencies
 
-Runtime: `pdfjs-dist`, `idb`, `pdf-lib` (in a worker when saving annotations into a file, and on demand for exports), `marked` (notebook preview) and CodeMirror 6 (notebook editor, loaded when the notebook first opens). The FSRS-5 scheduler is implemented in `src/lib/fsrs.ts` rather than pulled from `ts-fsrs`.
+Runtime: `pdfjs-dist`, `idb`, `pdf-lib` (in a worker when saving annotations into a file, and on demand for exports), `marked` (notebook preview), CodeMirror 6 (Markdown mode, loaded when the notebook first opens), TipTap with `@tiptap/markdown` (Document mode, loaded on first use), KaTeX (formulas, loaded when one is first shown) and MathLive (the formula editor, loaded when it first opens). The FSRS-5 scheduler is implemented in `src/lib/fsrs.ts` rather than pulled from `ts-fsrs`.
 
 ## Layout
 
