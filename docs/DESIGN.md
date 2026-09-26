@@ -168,6 +168,17 @@ Custom nodes live in `docmode/schema.ts`. `pageLink` is an atom chip, clicked to
 - The formula editor (`FormulaDialog.svelte`, `formula.svelte.ts`) is shared by both modes and loads MathLive when it first opens, with MathLive's virtual keyboard shown straight away. Its fonts are copied to `dist/mathlive/fonts/` by the same Vite plugin that copies pdf.js's assets.
 - "Notes as PDF" (`src/reader/printnotes.ts`) renders the notebook with `renderMarkdown(…, { plainLinks: true })`, so page links read "p. 12" or "Intro (p. 12)", waits for images and maths, and calls `window.print()`. A print stylesheet hides the rest of the app.
 
+## Read aloud
+
+Read aloud uses the browser's `speechSynthesis` with on-device voices only (`localService`, and never a voice named "Online"), so it is free, offline, and sends no text anywhere. Everything lives in `src/reader/speech/`:
+
+- `entry.svelte.ts` is the only part in the reader chunk: the `readAloud` singleton the entry points call, and `speechCommands`. On first use it imports `index.ts`, the lazy `speech` chunk (the player and its bar, about 16 kB). The player receives the settings it needs from the entry rather than importing `app`, so the lazy chunk shares no module with the app shell and the initial chunk is unchanged.
+- The mount points are single lines: `...speechCommands(r)` in `commands.ts`, the bar in `Reader.svelte` (inside the page view, bottom centre) with `readAloud.close()` in its `onDestroy`, the toolbar button, the selection menu's "Read aloud from here", the `speak` icon, and three settings (`readAloud`, `speechRate`, `speechVoices`). Reverting the feature's commits removes it.
+- `text.ts` (pure, tested) turns a page's pdf.js text items into sentences. Lines come from `hasEOL`; rotated items (the arXiv stamp) are dropped; a first or last line that is a bare page number, or that matches a first or last line of a page up to two away once digits are masked, is furniture. Line-end hyphens are dropped before a short lowercase fragment ("transduc-tion") and kept for compounds ("sequence-aligned"). A short line without closing punctuation before a capitalised line (a heading) ends a sentence. Bracketed numeric citations are removed. Sentences end at `.!?…` before a capital, digit or quote, except after abbreviations (English and Spanish), single initials, or before lowercase; a sentence over 280 characters is cut at a clause break. Every character keeps its offset in the page string the text layer uses (`pageText`), so a sentence maps back to the screen through `textLayerRanges`, as search hits do.
+- `speaker.svelte.ts` is a state machine: `idle`, `loading`, `picking`, `playing`, `paused`, `unavailable`. It speaks one sentence per utterance and queues the next on `end`, so Chromium's cut-off of long utterances never applies. Pause cancels and resume restarts the sentence, which also survives Chromium's pause bugs. A token discards events from cancelled utterances; a watchdog re-speaks a sentence if the engine goes quiet without `end`, and when a hidden tab becomes visible again a silenced engine is resumed or the sentence spoken again. The document language comes from the PDF's `Language` or `dc:language`, else from English and Spanish stopword counts; the voice is the one remembered for that language, else the default voice speaking it, else any offline voice.
+- `follow.ts` draws the spoken sentence in a `.speech-hl` layer appended to the page element and scrolls it into the middle band of the view, unless the reader scrolled by hand in the last 4 s. A page whose text layer is not built yet is scrolled to, and the highlight waits for its spans.
+- Voices: Edge lists its online voices a moment before the offline ones, so `loadVoices` waits (up to 2 s) for `voiceschanged` to bring an offline voice. Chrome and Edge on Windows list only the OneCore voices (Settings › Time & language › Speech), not SAPI 5 voices such as Zira.
+
 ## Installing and updating
 
 The manifest registers Estudio for `application/pdf` / `.pdf` (`file_handlers`) with `launch_handler: focus-existing`, so a PDF opened from Explorer arrives through `launchQueue` in the window that is already open. The library shows "Install Estudio" while the browser offers installation. The service worker precaches the app shell, the reader and note chunks, the pdf.js worker, the pdf-lib worker, and pdf.js cmaps, standard fonts and wasm decoders, so the installed app opens and saves PDFs with the local server stopped. Updates use prompt mode: a new version waits while a document is open and is applied (one reload) once the library is showing and pending saves have finished.
@@ -184,6 +195,7 @@ Reading
 - Themes: light, dark UI, and page modes: normal, dark (inverted pages), sepia.
 - Fit text width (`w`, the toolbar button, or a two-finger tap on touch screens) scales the current page's text column to the viewport and centres it, cropping the margins out of view. The column is the union of the page's horizontal text boxes (rotated margin stamps are ignored; a page without text uses the full page), cached per page. Pressing it again returns to the previous zoom.
 - Resume at last page and zoom. Reading timer per document.
+- Read aloud with offline voices from the selection, the current page or a clicked sentence, highlighting and following the spoken sentence across pages (see Read aloud). "Turn off read aloud" in the palette hides every entry point.
 - Hover a link to a figure/section to preview its destination (Sioyek "smart jump" style) — internal links only in v1.
 - When the hovered link lands on a bibliography entry, the preview shows the entry as text instead of a page crop. The entry is read from the destination page's text, from the destination down to the next entry. It offers "Open paper" for a DOI, arXiv id or URL found in the entry, otherwise "Search Scholar" with the likely title. The preview stays open while the pointer moves onto it.
 
@@ -213,7 +225,7 @@ Layout
 
 Keyboard and discovery
 - Command palette (Ctrl+K) listing every action with its shortcut.
-- `j/k` scroll, `J/K` or PgDn/PgUp page, `g` go to page, `h` highlight tool, `u` underline, `p` pen, `n` note, `e` eraser, `v`/Esc select, `1`–`6` colour, `/` or Ctrl+F search, `f` focus mode, `r` ruler, `b` toggle sidebar, `W` widen notebook. In the notebook editor: Ctrl+L link current page, `[[` link completion, and the formatting keys above. The editor keeps its own keys: reader shortcuts never fire while typing in it.
+- `j/k` scroll, `J/K` or PgDn/PgUp page, `g` go to page, `h` highlight tool, `u` underline, `p` pen, `n` note, `e` eraser, `v`/Esc select, `1`–`6` colour, `/` or Ctrl+F search, `f` focus mode, `r` ruler, `l` read aloud / pause, `b` toggle sidebar, `W` widen notebook. In the notebook editor: Ctrl+L link current page, `[[` link completion, and the formatting keys above. The editor keeps its own keys: reader shortcuts never fire while typing in it.
 
 Export and safety
 - Export highlights + notes + notebook to Markdown (Obsidian-friendly).
@@ -233,6 +245,7 @@ Export and safety
 - Two notes whose frontmatter names the same document: the index keeps the one with the shortest path, in the first vault scanned. Notes moved into a vault by another app while Estudio runs are found when a document's indexed note goes missing, not before.
 - A PDF opened without a handle is rendered with its own annotation objects; if it was exported by Estudio, its annotations are drawn twice.
 - Document mode writes an edited block in the contract's writer forms, so an edit inside a hand-formatted table re-pads its pipes, and `__b__` becomes `**b**` in that block. Untouched blocks are never rewritten.
+- Read aloud follows the PDF's content order, which for most papers is reading order but can put figure labels or a second column's text in odd places. A sentence that runs across a page break is read as two. Headings are found by a line-shape heuristic, and the hyphen rule can glue or keep a hyphen wrongly. Language detection knows English and Spanish only.
 - Images cannot be resized in the editor, and an image deleted from a note leaves its file in `attachments/` (and its record in IndexedDB).
 
 ## Later (tablet / mobile / v2)

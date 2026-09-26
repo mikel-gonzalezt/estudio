@@ -42,6 +42,12 @@ Switching modes never changes the text, and a note you only read is never rewrit
 - **Formulas.** `Ctrl+M` or the formula button opens a visual formula editor with an on-screen maths keyboard, so you do not need LaTeX. Click a formula to edit it.
 - **Printing.** The download menu's **Notes as PDF** opens the print dialog on a clean copy of the notes, with images, tables and formulas, and page links written as "p. 12". Choose **Save as PDF** there.
 
+## Read aloud
+
+The speaker button in the toolbar, or `l`, reads the document aloud from the selection, or from the top of the page on screen. Select text and choose **Read aloud from here**, or pick **Read aloud from a sentence I click** in the command palette and click a sentence. The sentence being read is marked on the page, and the page follows it, unless you scrolled away in the last few seconds. The bar at the bottom pauses, skips a sentence back or forward, stops, and sets the speed (0.75× to 2×) and the voice. Your voice is remembered for each language.
+
+Only voices installed in Windows are used, so it works offline and no text leaves your computer; Edge's "Online (Natural)" voices are never offered. Estudio picks a voice for the document's language (English or Spanish, from the PDF's metadata or its text). Add voices in Windows Settings › Time & language › Speech; Chrome and Edge list only the voices installed there, not older SAPI voices such as Zira. Page headers, page numbers, the arXiv margin stamp and bracketed citations like [13] are skipped. **Turn off read aloud** in the command palette hides all of it.
+
 ## Develop
 
 Requires Node 20+.
@@ -89,6 +95,7 @@ To install as an app, open the preview or a deployed build in Chrome or Edge and
 | Arrow keys on a pane handle | Resize the pane (Shift for bigger steps, double-click to reset) |
 | `R` | Review due cards |
 | `f`, `r` | Focus mode, reading ruler |
+| `l` | Read aloud; pause and resume while reading |
 
 ## Dependencies
 
