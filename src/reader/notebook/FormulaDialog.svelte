@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { MathfieldElement } from 'mathlive';
   import { formula } from './formula.svelte';
+  import { loadKatex, mathError } from '../../lib/katex';
 
   let host: HTMLDivElement | undefined = $state();
   let latex = $state('');
   let display = $state(false);
   let failed = $state('');
+  let problem = $state<string | null>(null);
   let field: MathfieldElement | null = null;
 
   /** MathLive is heavy: it is fetched the first time the editor opens, with its fonts served from `/mathlive/`. */
@@ -52,6 +54,15 @@
     };
   });
 
+  $effect(() => {
+    const src = latex.trim();
+    const d = display;
+    let live = true;
+    if (!src) problem = null;
+    else void loadKatex().then((k) => { if (live) problem = mathError(k, src, d); }, () => undefined);
+    return () => (live = false);
+  });
+
   function typed(v: string) {
     latex = v;
     if (field && field.value !== v) field.value = v;
@@ -74,9 +85,10 @@
       <p class="muted">Type with the keyboard below, or in LaTeX if you know it.</p>
       <div class="field" bind:this={host}>{#if failed}<p class="error">Could not load the formula editor: {failed}</p>{/if}</div>
       <label class="latex">LaTeX
-        <input type="text" value={latex} oninput={(e) => typed(e.currentTarget.value)} spellcheck="false" data-testid="formula-latex"
+        <input type="text" value={latex} oninput={(e) => typed(e.currentTarget.value)} spellcheck="false" aria-invalid={problem !== null} data-testid="formula-latex"
           onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); done(); } else if (e.key === 'Escape') cancel(); }} />
       </label>
+      {#if problem}<p class="error" data-testid="formula-error">Formula error: {problem}</p>{/if}
       <label class="own"><input type="checkbox" bind:checked={display} data-testid="formula-display" /> On its own line</label>
       <div class="row">
         <button class="btn" onclick={cancel}>Cancel</button>

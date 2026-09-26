@@ -79,7 +79,6 @@
   .cm-host :global(.cm-md-math) { cursor: pointer; }
   .cm-host :global(.cm-md-math:hover) { background: var(--accent-soft); border-radius: 3px; }
   .cm-host :global(.cm-md-math-block) { display: block; text-align: center; padding: 4px 12px; }
-  .cm-host :global(.math-error) { font-family: var(--mono); color: var(--danger); }
   :global(.cm-tooltip.cm-tooltip-autocomplete) {
     background: var(--surface);
     color: var(--text);

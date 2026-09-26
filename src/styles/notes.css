@@ -30,5 +30,4 @@
 .notes-html img { max-width: 100%; height: auto; border-radius: 4px; vertical-align: middle; }
 .notes-html img.missing { display: inline-block; min-width: 120px; min-height: 24px; padding: 4px 8px; font-size: 12px; color: var(--muted); border: 1px dashed var(--border); }
 .notes-html .math-display { display: block; margin: 0.6em 0; text-align: center; overflow-x: auto; }
-.notes-html .math-error { font-family: var(--mono); color: var(--danger); }
 .notes-html .katex { font-size: 1.08em; }

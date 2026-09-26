@@ -99,3 +99,5 @@ kbd {
 .scroll-thin { scrollbar-width: thin; scrollbar-color: var(--surface-3) transparent; }
 
 .icon { width: 18px; height: 18px; display: block; }
+
+.math-error { font-family: var(--mono); color: inherit; text-decoration: underline wavy var(--danger); text-decoration-skip-ink: none; text-underline-offset: 3px; }
