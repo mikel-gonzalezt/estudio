@@ -13,6 +13,7 @@
 - `pdfjs-dist` for parsing, rendering, text layer, outline, search.
 - `idb` for IndexedDB.
 - `pdf-lib` for reading and writing annotations inside PDF files. It runs in a Web Worker (`src/lib/pdfannots.worker.ts`) when saving to a file, and is loaded with dynamic `import()` for exports; it is never in the initial chunk.
+- `docx`, `temml` and `mdast-util-from-markdown` (with the GFM and maths extensions) for "Notes as Word (.docx)" (`src/lib/export/docx.ts`). Formulas become native Word equations through LaTeX → MathML (temml) → OMML (`src/lib/export/omml.ts`); MathML outside that mapping is drawn to a PNG by the browser instead. All of it sits in one chunk loaded with dynamic `import()` when the export runs.
 - `vite-plugin-pwa` for the service worker and manifest.
 - CodeMirror 6 (`@codemirror/*`) for the notebook's Markdown mode, loaded with dynamic `import()` the first time an editor mounts. `markdownLanguage` is used instead of `markdown()` so `@codemirror/lang-html` stays out of the bundle.
 - TipTap 3 (`@tiptap/*`, ProseMirror underneath) with `@tiptap/markdown` for the notebook's Document mode, KaTeX for typeset maths, MathLive for the visual formula editor. Each is loaded with dynamic `import()` on first use; none is in the initial chunk (see Notebook editing).

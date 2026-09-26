@@ -27,6 +27,14 @@ export async function printNotesFile(r: Reader) {
   await printNotes(r.doc.title, r.study.notebook.markdown, r.study.notebook.files);
 }
 
+/** The notebook as a Word document. The exporter and its libraries load only when asked for. */
+export async function exportNotesDocxFile(r: Reader) {
+  const { notesToDocx } = await import('../lib/export/docx');
+  await r.study.notebook.flush();
+  const blob = await notesToDocx(r.study.notebook.markdown, { title: r.doc.title, resolveImage: r.study.notebook.files.resolve });
+  download(blob, `${safeName(r.doc.title)} (notes).docx`, blob.type);
+}
+
 /** A copy of the PDF with the annotations inside. Annotations another app left in the file are kept. */
 export async function exportPdfFile(r: Reader) {
   const [{ readAnnotations, writeAnnotations }, bytes] = await Promise.all([import('../lib/pdfannots'), r.bytes()]);
