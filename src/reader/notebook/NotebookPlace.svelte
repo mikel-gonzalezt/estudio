@@ -1,15 +1,18 @@
 <script lang="ts">
   import { app } from '../../lib/app.svelte';
-  import type { VaultFolder } from '../../lib/types';
+  import type { FileOffer } from '../../lib/notebookoffer';
+  import type { VaultFolder, VaultId } from '../../lib/types';
   import { vaults } from '../../lib/vaults.svelte';
+  import { exportNotesFile } from '../exports';
   import type { Reader } from '../session.svelte';
   import FolderPicker from './FolderPicker.svelte';
 
-  let { reader, onclose }: { reader: Reader; onclose: () => void } = $props();
+  let { reader, offer, onclose }: { reader: Reader; offer: FileOffer | null; onclose: () => void } = $props();
   const study = $derived(reader.study);
   const home = $derived(study.home);
   const openVaults = $derived(vaults.list.filter((v) => !vaults.locked.has(v.id)));
-  const vaultName = (id: string) => vaults.list.find((v) => v.id === id)?.name ?? 'a vault';
+  const vaultName = (id: VaultId) => vaults.byId(id)?.name ?? 'a vault';
+  const offers = (o: 'next-to-pdf' | 'notes-only') => !!offer?.options.includes(o);
   const firstFolder = (): VaultFolder | null => {
     const v = vaults.current ?? openVaults[0];
     return app.settings.notebookFolder ?? (v ? { vault: v.id, dir: '' } : null);
@@ -37,6 +40,21 @@
       busy = false;
     }
   }
+
+  async function besidePdf() {
+    const pdf = reader.source.handle;
+    if (!pdf) return;
+    busy = true;
+    error = '';
+    try {
+      const r = await study.moveBesidePdf(pdf, reader.doc.fileName);
+      if (r === 'elsewhere') error = `That folder does not hold "${reader.doc.fileName}". Pick the folder the PDF is in. Nothing was saved.`;
+    } catch (e) {
+      error = `The notebook stays inside Estudio: ${e instanceof Error ? e.message : String(e)}`;
+    } finally {
+      busy = false;
+    }
+  }
 </script>
 
 <div class="place" data-testid="notebook-place" role="dialog" aria-label="Notebook location">
@@ -44,10 +62,19 @@
     <strong>This notebook</strong>
     {#if home.kind === 'vault'}
       <p data-testid="notebook-location"><span class="muted">{vaultName(home.vault)} /</span> {home.path}</p>
-      {#if study.blocked}<p class="muted">Estudio needs access to that vault again.</p>{/if}
+      {#if study.blocked}<p class="muted">Estudio needs access to that {study.blocked.pdfFolder ? 'folder' : 'vault'} again.</p>{/if}
     {:else}
       <p data-testid="notebook-location" class="muted">Kept inside Estudio, not as a file.</p>
-      {#if !openVaults.length}
+      {#if offer?.why}<p class="muted small" data-testid="notebook-why">{offer.why}</p>{/if}
+      {#if !dest && (offers('next-to-pdf') || offers('notes-only'))}
+        <div class="row wrap">
+          {#if offers('next-to-pdf')}<button class="btn primary" disabled={busy || study.poppedOut} onclick={besidePdf} data-testid="save-next-to-pdf">Next to the PDF</button>{/if}
+          <button class="btn" disabled={!openVaults.length} onclick={() => (dest = firstFolder())} data-testid="move-notebook">In a vault folder…</button>
+          {#if offers('notes-only')}<button class="btn" onclick={() => exportNotesFile(reader)} data-testid="save-notes-only">Notes only (.md)</button>{/if}
+        </div>
+        {#if !openVaults.length}<p class="muted small">Open a vault to put the notebook in a vault folder.</p>{/if}
+        {#if study.poppedOut}<p class="muted">Bring the notebook back from its window first.</p>{/if}
+      {:else if !openVaults.length}
         <p class="muted">Open a vault to keep notebooks as Markdown files.</p>
       {:else if dest}
         <FolderPicker value={dest} onchange={(f) => (dest = f)} testid="move-picker" />
@@ -73,7 +100,7 @@
     {#if app.settings.notebookFolder}
       <FolderPicker value={app.settings.notebookFolder} onchange={setFolder} testid="new-notebook-picker" />
     {/if}
-    <p class="muted small">A notebook keeps working wherever you move its file: its frontmatter names the PDF. PDFs outside a vault keep new notebooks inside Estudio unless a folder is chosen here.</p>
+    <p class="muted small">A notebook keeps working wherever you move its file: its frontmatter names the PDF. PDFs outside a vault ask once for access to their folder.</p>
   </section>
   <div class="row end"><button class="btn" onclick={onclose}>Done</button></div>
 </div>
@@ -98,6 +125,7 @@
   p { margin: 0; overflow-wrap: anywhere; }
   label { display: flex; align-items: center; gap: 6px; }
   .row { display: flex; gap: 6px; }
+  .wrap { flex-wrap: wrap; }
   .end { justify-content: flex-end; }
   .small { font-size: 11.5px; }
   .error { color: var(--danger); }

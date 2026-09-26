@@ -2,16 +2,16 @@ import { cardsFor, countDue, deleteCard, getAttachment, putCard } from '../lib/d
 import { newSrs } from '../lib/fsrs';
 import { attachmentId, figureMarkdown, imageRefs, refFrom, rewriteAttachmentRefs, writeAttachment } from '../lib/attachments';
 import { appendBlock, quoteBlock } from '../lib/notebook';
-import { app, type VaultPlace } from '../lib/app.svelte';
+import { app } from '../lib/app.svelte';
 import { notebookIndex } from '../lib/notebookindex';
 import { idbNotebook, linkedPdfName, notebookFiles, vaultNotebook, type NotebookHome, type NotebookStore, type VaultHome } from '../lib/notebookstore';
 import { popoutHash } from '../lib/notebooksync';
 import { namePageLinks } from '../lib/pagelink';
-import { freePath } from '../lib/vault';
+import { freePath, removeEntry } from '../lib/vault';
 import { vaults } from '../lib/vaults.svelte';
-import { joinPath, stemOf } from '../lib/vaulttree';
+import { joinPath, parentOf, stemOf, type VaultPath } from '../lib/vaulttree';
 import { NotebookChannel, NotebookDoc } from './notebook/doc.svelte';
-import { newId, type AnnId, type Card, type CardId, type DocId, type Vault, type VaultFolder } from '../lib/types';
+import { newId, type AnnId, type Card, type CardId, type DocId, type NotebookLoc, type Vault, type VaultFolder, type VaultId } from '../lib/types';
 
 export type RightTab = 'notebook' | 'cards';
 export type ReviewScope = 'doc' | 'all';
@@ -28,10 +28,13 @@ function storeFor(home: NotebookHome): NotebookStore | null {
   return notebookIndex.readable(home.vault) ? vaultNotebook(home, (id) => notebookIndex.root(id), notebookIndex) : null;
 }
 
-/** Finds a document's notebook as the reader window opens it (see `NotebookIndex.locate`). */
-export async function findNotebook(docId: DocId, pdfName: string, place: VaultPlace | undefined): Promise<NotebookHome> {
-  const home = await notebookIndex.locate(docId, pdfName, place && { vault: place.vault, path: place.path }, app.settings.notebookFolder);
-  return home.kind === 'vault' && !vaults.list.some((v) => v.id === home.vault) ? { kind: 'db', docId } : home;
+/**
+ * Finds a document's notebook as the reader window opens it (see `NotebookIndex.locate`). `pdf` is
+ * where the PDF is in a vault or a granted PDF folder.
+ */
+export async function findNotebook(docId: DocId, pdfName: string, pdf: NotebookLoc | undefined): Promise<NotebookHome> {
+  const home = await notebookIndex.locate(docId, pdfName, pdf, app.settings.notebookFolder);
+  return home.kind === 'vault' && !vaults.byId(home.vault) ? { kind: 'db', docId } : home;
 }
 
 export class Study {
@@ -58,7 +61,7 @@ export class Study {
     this.docId = docId;
     this.home = home;
     const store = storeFor(home);
-    if (!store && home.kind === 'vault') this.blocked = vaults.list.find((v) => v.id === home.vault) ?? null;
+    if (!store && home.kind === 'vault') this.blocked = vaults.byId(home.vault) ?? null;
     const channel = new NotebookChannel(docId);
     this.notebook = new NotebookDoc(docId, channel, store ?? UNREACHABLE, filesFor(home), linkedPdfName(home));
     channel.on((m) => {
@@ -125,28 +128,54 @@ export class Study {
     return true;
   }
 
-  /**
-   * Writes a database notebook into `folder` as `<pdf name>.md` with its frontmatter, its page
-   * links naming the PDF for Obsidian and its images written to `attachments/` beside it, and
-   * keeps editing it there.
-   */
+  /** Moves a database notebook into `folder` of a vault as `<pdf name>.md` (see `#moveInto`). */
   async moveToVault(folder: VaultFolder, pdfName: string): Promise<void> {
-    const root = notebookIndex.root(folder.vault);
-    if (!root) throw new Error('Estudio cannot open that vault.');
+    await this.#moveInto(folder.vault, joinPath(folder.dir, `${stemOf(pdfName)}.md`), pdfName);
+  }
+
+  /**
+   * Moves a database notebook next to its PDF, as `<pdf name>.md`, asking for the PDF's folder the
+   * first time; call from a click. Says why when nothing was moved: the user cancelled, or picked a
+   * folder that does not hold the PDF.
+   */
+  async moveBesidePdf(pdf: FileSystemFileHandle, pdfName: string): Promise<'moved' | 'cancelled' | 'elsewhere'> {
+    const at = await vaults.grantFolderOf(pdf);
+    if (at === null || at === 'elsewhere') return at ?? 'cancelled';
+    await this.#moveInto(at.vault, joinPath(parentOf(at.path), `${stemOf(pdfName)}.md`), pdfName);
+    return 'moved';
+  }
+
+  /**
+   * Writes a database notebook to `planned` in `vault`, or a free name beside it, with its
+   * frontmatter, its page links naming the PDF for Obsidian and its images written to
+   * `attachments/` beside it, and keeps editing it there. The database copy is left as it was, and
+   * a failure on the way removes the files written so far, so the notebook stays where it was.
+   */
+  async #moveInto(vault: VaultId, planned: VaultPath, pdfName: string): Promise<void> {
+    const root = notebookIndex.root(vault);
+    if (!root) throw new Error('Estudio cannot open that folder.');
     await this.notebook.flush();
-    const home: VaultHome = {
-      kind: 'vault', docId: this.docId, vault: folder.vault, pdfName,
-      path: await freePath(root, joinPath(folder.dir, `${stemOf(pdfName)}.md`)),
-    };
+    const home: VaultHome = { kind: 'vault', docId: this.docId, vault, pdfName, path: await freePath(root, planned) };
     const store = storeFor(home)!;
     const moved = new Map<string, string>();
-    for (const r of imageRefs(this.notebook.markdown)) {
-      const id = attachmentId(r.src);
-      const att = id && !moved.has(id) ? await getAttachment(id) : undefined;
-      if (att) moved.set(att.id, refFrom(home.path, await writeAttachment(root, home.path, att.blob, att.name)));
+    const written: VaultPath[] = [];
+    let text: string;
+    try {
+      for (const r of imageRefs(this.notebook.markdown)) {
+        const id = attachmentId(r.src);
+        const att = id && !moved.has(id) ? await getAttachment(id) : undefined;
+        if (!att) continue;
+        const path = await writeAttachment(root, home.path, att.blob, att.name);
+        written.push(path);
+        moved.set(att.id, refFrom(home.path, path));
+      }
+      text = rewriteAttachmentRefs(namePageLinks(this.notebook.markdown, pdfName), (id) => moved.get(id));
+      written.push(home.path);
+      await store.save(text, true);
+    } catch (e) {
+      await Promise.all(written.map((p) => removeEntry(root, p).catch(() => undefined)));
+      throw e;
     }
-    const text = rewriteAttachmentRefs(namePageLinks(this.notebook.markdown, pdfName), (id) => moved.get(id));
-    await store.save(text, true);
     this.notebook.rehome(store, filesFor(home), pdfName);
     this.home = home;
     this.notebook.edit(text);

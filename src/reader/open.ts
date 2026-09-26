@@ -2,6 +2,7 @@ import { baseOf } from '../lib/annmerge';
 import { app, type PdfRequest } from '../lib/app.svelte';
 import { annotationsFor, getDoc, putDoc, writeAnnotations } from '../lib/db';
 import { syncPdf } from '../lib/pdfworker';
+import { vaults } from '../lib/vaults.svelte';
 import type { AnnId, DocId, DocRecord, FileAnnotation, StoredAnnotation } from '../lib/types';
 import { FileSync, type SaveState, type SyncHost } from './filesync.svelte';
 import { loadPdf, pageInfo } from './pdf';
@@ -71,7 +72,8 @@ export async function openDocument(request: PdfRequest): Promise<Opened> {
     }
   }
   await putDoc(doc);
-  const reader = new Reader(pdf, info, doc, annotations, request, await findNotebook(id, file.name, request.place));
+  const pdfAt = request.place ?? (handle && (await vaults.folderOf(handle)));
+  const reader = new Reader(pdf, info, doc, annotations, request, await findNotebook(id, file.name, pdfAt));
   if (handle) {
     reader.sync = new FileSync(handle, doc.syncBase ?? {}, syncHost(reader), state);
     if (behind) reader.sync.touch();

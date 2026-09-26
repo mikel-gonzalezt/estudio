@@ -103,7 +103,7 @@
   {:else if blocked?.kind === 'locked'}
     {@const vault = blocked.vault}
     <div class="blocked" data-testid="popout-blocked">
-      <p>This notebook is a file in the vault "{vault.name}", and Estudio needs access to it again.</p>
+      <p>This notebook is a file in the {vault.pdfFolder ? 'folder' : 'vault'} "{vault.name}", and Estudio needs access to it again.</p>
       <button class="btn primary" onclick={() => void grant(vault)}>Allow access to {vault.name}</button>
     </div>
   {:else if blocked?.kind === 'missing'}
