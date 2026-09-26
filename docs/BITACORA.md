@@ -44,6 +44,13 @@ Estudio is a study-focused PDF reader that runs as an installed Edge app (PWA) o
 
 Read this file first. Suggested order: a small settings screen; then whatever real use shows is missing; then OCR, if scanned material becomes common.
 
+## 2026-09-27, session 9
+
+- **Published.** The repository is public at `github.com/mikel-gonzalezt/estudio`. GitHub Pages deploys the app to <https://mikel-gonzalezt.github.io/estudio/> on every push to `main`. The user installed it on another device and it works. On phones the toolbar collapses, which is expected, since a phone isn't meant for note-taking.
+- **Isolation.** The hosted app is static files only, with no server, accounts or uploads. Each browser on each device keeps its own library, and nothing is shared between users.
+- **Guide.** `docs/GUIA.md` no longer names the author. Installing from the web address comes first, installing from source is marked as advanced, and the guide says plainly that files never leave the device. The README keeps its honest "How it was built" credit.
+- **Release.** Tag `v1.1.0` covers the security hardening (session 8), GitHub Pages hosting, the MIT license and the docs. Its release notes are in `docs/releases/v1.1.0.md`.
+
 ## 2026-09-26, session 8
 
 ### Security audit: findings
