@@ -44,10 +44,15 @@ describe('notesToDocx', () => {
     expect(xml).toContain('>Notes</w:t>');
   });
 
-  it('writes headings in Word heading styles with outline levels', async () => {
-    const xml = await body('# One\n\n### Three');
-    expect(xml).toMatch(/<w:pStyle w:val="Heading1"\/>[\s\S]*<w:outlineLvl w:val="0"\/>[\s\S]*One/);
-    expect(xml).toMatch(/<w:pStyle w:val="Heading3"\/>[\s\S]*<w:outlineLvl w:val="2"\/>[\s\S]*Three/);
+  it('writes headings in Word heading styles that carry outline levels', async () => {
+    const zip = await unzip('# One\n\n### Three');
+    const xml = await zip.file('word/document.xml')!.async('string');
+    expect(xml).toMatch(/<w:pStyle w:val="Heading1"\/>[^]*?>One</);
+    expect(xml).toMatch(/<w:pStyle w:val="Heading3"\/>[^]*?>Three</);
+    const styles = await zip.file('word/styles.xml')!.async('string');
+    for (const level of [1, 2, 3, 4, 5, 6]) {
+      expect(styles).toMatch(new RegExp(`w:styleId="Heading${level}"[^]*?<w:outlineLvl w:val="${level - 1}"/>[^]*?</w:style>`));
+    }
   });
 
   it('writes bold, italic, strike, inline code and highlight', async () => {

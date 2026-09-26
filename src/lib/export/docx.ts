@@ -18,6 +18,7 @@ import {
   type ILevelsOptions,
   type IParagraphOptions,
   type IRunOptions,
+  type IStylesOptions,
   type ParagraphChild,
 } from 'docx';
 import type { BlockContent, DefinitionContent, List, ListItem, PhrasingContent, Root, RootContent, Table as MdTable, Text } from 'mdast';
@@ -183,6 +184,21 @@ const NUMBERING: { reference: Numbering; levels: ILevelsOptions[] }[] = [
   { reference: 'task-done', levels: levels(LevelFormat.BULLET, () => '☑', 'Segoe UI Symbol') },
 ];
 
+/** Heading styles carry their outline level, so Word's navigation pane lists them. */
+const heading = (level: number) => ({ paragraph: { spacing: { before: level < 2 ? 320 : 240, after: 80 }, keepNext: true, outlineLevel: level } });
+const STYLES: IStylesOptions = {
+  default: {
+    document: { run: { font: 'Calibri', size: 22 }, paragraph: { spacing: { after: 120 } } },
+    heading1: heading(0),
+    heading2: heading(1),
+    heading3: heading(2),
+    heading4: heading(3),
+    heading5: heading(4),
+    heading6: heading(5),
+  },
+};
+const TIGHT = { spacing: { after: 40 } };
+
 interface Ctx { quote: number; indent: number; width: number }
 interface RunStyle { bold?: boolean; italics?: boolean; strike?: boolean; highlight?: boolean; link?: boolean }
 type Block = Paragraph | Table;
@@ -322,7 +338,7 @@ class Writer {
       case 'paragraph':
         return [this.#para(ctx, { children: await this.inline(n.children, {}, ctx) })];
       case 'heading':
-        return [this.#para(ctx, { heading: HEADINGS[n.depth - 1], outlineLevel: n.depth - 1, children: await this.inline(n.children, {}, ctx) })];
+        return [this.#para(ctx, { heading: HEADINGS[n.depth - 1], children: await this.inline(n.children, {}, ctx) })];
       case 'thematicBreak':
         return [this.#para(ctx, { border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'A0A0A0', space: 1 } }, children: [] })];
       case 'blockquote':
@@ -361,12 +377,12 @@ class Writer {
         out.push(...(await this.#list(c, level + 1, ctx)));
       } else if (c.type === 'paragraph' && !numbered) {
         numbered = true;
-        out.push(this.#para(ctx, { numbering: { reference, level, instance }, children: await this.inline(c.children, {}, inner) }));
+        out.push(this.#para(ctx, { ...TIGHT, numbering: { reference, level, instance }, children: await this.inline(c.children, {}, inner) }));
       } else {
         out.push(...(await this.#block(c, inner)));
       }
     }
-    if (!numbered) out.unshift(this.#para(ctx, { numbering: { reference, level, instance }, children: [] }));
+    if (!numbered) out.unshift(this.#para(ctx, { ...TIGHT, numbering: { reference, level, instance }, children: [] }));
     return out;
   }
 
@@ -382,7 +398,7 @@ class Writer {
             const children = cell ? await this.inline(cell.children, { bold: ri === 0 }, cellCtx) : [];
             return new TableCell({
               width: { size: Math.floor(100 / cols), type: WidthType.PERCENTAGE },
-              children: [new Paragraph({ ...(align ? { alignment: ALIGN[align] } : {}), children })],
+              children: [new Paragraph({ spacing: { before: 40, after: 40 }, ...(align ? { alignment: ALIGN[align] } : {}), children })],
             });
           }),
         );
@@ -406,6 +422,7 @@ export async function notesToDocx(markdown: string, opts: DocxOptions): Promise<
   if (!children.length || children.at(-1) instanceof Table) children.push(new Paragraph({}));
   const doc = new Document({
     title: opts.title,
+    styles: STYLES,
     numbering: { config: NUMBERING },
     sections: [{ children }],
   });
