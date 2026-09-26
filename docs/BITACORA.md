@@ -2,6 +2,48 @@
 
 A running log of what was built, what was decided, and what is pending. Newest session first.
 
+## v1.0: status on 2026-09-26
+
+The user and the lead agreed that v1 is feature-complete for studying on PC. It is tagged `v1.0.0` in git.
+
+### What v1 is
+
+Estudio is a study-focused PDF reader that runs as an installed Edge app (PWA) on Windows and works offline.
+
+- **Reading:** a fast virtualised viewer with outline, thumbnails and search. Citations show a preview with an "Open paper" button. Fit text width (`w`) crops the margins. There are dark and sepia page modes, a focus mode, a reading ruler, a pomodoro timer and a reading timer.
+- **Annotating:** highlight, underline and strike in six colours whose meanings you can edit; a pressure-aware pen; sticky notes; area clips. Everything has undo, and annotations are saved into the PDF itself as standard annotations.
+- **Notes:** each PDF has a notebook with a Document mode (like Google Docs) and a Markdown mode. Notes have page-link chips, Ctrl+L, `[[` suggestions and auto links; images and PDF figure clips; tables; formulas (KaTeX, with the MathLive editor); and a pop-out window. Notes are `.md` files with frontmatter, paired to the PDF by id, so they can live in any vault, including an Obsidian one.
+- **Studying:** flashcards (basic and cloze) scheduled with FSRS; pinned figures that follow the reading position; read aloud with offline Windows voices.
+- **Organising:** Obsidian-style vaults (a folder tree of PDFs and notes) and a recent-files library.
+- **Exporting:** Markdown, notes only (`.md`), notes as Word (`.docx`, with native equations), notes as PDF, the annotated PDF, and a JSON backup.
+
+### How it runs
+
+- **Build and update:** `scripts\install.ps1` builds the app, starts `scripts/serve.mjs` on `127.0.0.1:4173`, and opens Edge. The installed app works without the server. The server is only needed to pick up updates, and the app switches to a new version the next time it shows the library.
+- **Opening PDFs:** Estudio is registered as a PDF handler, so it appears under "Open with". To make it the default: Settings › Apps › Default apps › `.pdf` › Estudio.
+- **Where data lives:** annotations are in the PDF files. Notes are `.md` files (or IndexedDB for PDFs outside a vault). Cards, progress and settings are in IndexedDB, in the Edge profile, under `http://127.0.0.1:4173`. Keep that port fixed, because the data belongs to that address.
+- **Voices:** read aloud needs Windows OneCore voices. As of this date the PC has Helena, Laura and Pablo (es-ES) and David, Mark and Zira (en-US).
+
+### Parked, by the user's decision
+
+- OCR for scanned PDFs.
+- Optional AI (flashcards from highlights, explain a paragraph).
+- Automatic PPTX to PDF conversion.
+- A native Tauri installer and tablet/mobile builds.
+
+### Known gaps worth knowing
+
+- **Real-disk testing:** saving into PDFs and the vault file operations were verified in the browser's sandbox storage, not on real disk folders. Keep backups of important PDFs until they have been used for a while.
+- **Encrypted PDFs** can't be written to, so their annotations stay inside Estudio.
+- **Duplicate copies:** copies of the same PDF share annotations and a notebook.
+- **Obsidian edits:** text edited in Obsidian while the same note is open in Estudio gets overwritten.
+- **No settings screen:** feature switches (pinned figures, read aloud, notebook location) live in the Ctrl+K palette and in menus.
+- **Smaller gaps:** listed under each session below.
+
+### If work resumes
+
+Read this file first. Suggested order: a small settings screen; then whatever real use shows is missing; then OCR, if scanned material becomes common.
+
 ## 2026-09-26, session 5
 
 ### Research and decisions
