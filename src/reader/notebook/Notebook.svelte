@@ -19,7 +19,7 @@
   } = $props();
 
   type Mode = 'write' | 'both' | 'preview';
-  let mode = $state<Mode>('both');
+  let mode = $state<Mode>('write');
   const html = $derived(renderMarkdown(doc.markdown));
 
   function onPreviewClick(e: MouseEvent) {

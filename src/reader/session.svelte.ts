@@ -45,7 +45,7 @@ export class Reader {
   doc: DocRecord = $state()!;
   scale = $state(1);
   currentPage = $state(1);
-  leftOpen = $state(true);
+  leftOpen = $state(false);
   leftTab = $state<LeftTab>('outline');
   scroller: HTMLElement | undefined = $state();
   back: Target[] = $state([]);
