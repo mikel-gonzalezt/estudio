@@ -2,6 +2,43 @@
 
 A running log of what was built, what was decided, and what is pending. Newest session first.
 
+## 2026-09-26, session 3
+
+### Questions answered
+
+- **PPTX.** Recommended converting to PDF on open rather than rendering PPTX in the app (browser renderers are inaccurate). By hand today: PowerPoint > Save As > PDF. Automatic conversion through the local server, using PowerPoint or LibreOffice, is proposed and **not built yet**.
+- **Google Docs.** Not recommended: it can't be embedded, needs sign-in and internet, and would lose page links. We chose a document-style editor that still saves Markdown instead.
+
+### Built
+
+1. **Document mode.** A WYSIWYG editor (TipTap) with a formatting toolbar and no visible Markdown, over the same `.md` file. The Document / Markdown toggle is remembered, and **Document is the default**, so family members get the easy mode.
+   - **Chosen after a spike:** TipTap against Milkdown, recorded in DESIGN.md.
+   - **The file never changes behind your back:** blocks you didn't edit are kept byte for byte, and opening a note or switching modes never rewrites it.
+2. **Images.** Paste or drag images in. In a vault they go to `attachments/` next to the note; for notebooks stored inside Estudio they go to IndexedDB. "Send to notes" on the area clip inserts a PDF figure with its page link.
+3. **Tables** edited as a grid.
+4. **Formulas.** `$…$` and `$$…$$` are rendered with KaTeX. A visual formula editor (MathLive) has an on-screen keyboard.
+5. **Exports.** "Notes as PDF" goes through the print dialog. "Notes as Word (.docx)" produces real Word headings, lists, tables, images and highlight. Formulas become native Word equations, with a picture as fallback for unsupported ones such as `\cancel`.
+6. **`docs/NOTES-FORMAT.md`** is the file-format contract shared by the editor and the exporters.
+
+### How it was checked
+
+- 328 tests pass.
+- Both agents drove their features in the app.
+- After merging, the lead checked the whole chain end to end in headless Edge: typing in Document mode (heading, bold, formula, highlight, list), pasting an image, then exporting "Notes as Word" through the menu. Word opened the file, which had 1 equation and 1 image, and Word's PDF rendered correctly.
+
+### Known gaps
+
+- Images can't be resized. A deleted image leaves its file behind.
+- Pasting Markdown text in Document mode inserts it as plain text.
+- Editing a hand-formatted table re-aligns its pipes.
+- In Word export: webp and svg images are not supported, `\color` is dropped, and a numbered list that starts at another number restarts at 1.
+- The offline cache grew to about 8.6 MB (the maths fonts).
+
+### Next
+
+- Automatic PPTX to PDF conversion (proposed).
+- Setting Estudio as the default PDF app in Windows (still pending from session 1).
+
 ## 2026-09-26, session 2
 
 ### Built
