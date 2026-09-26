@@ -1,25 +1,49 @@
 import { describe, expect, it } from 'vitest';
 import { NotebookIndex, notebooksIn, remapPath } from './notebookindex';
 import type { DocId, VaultId } from './types';
+import { freePath, placeIn } from './vault';
 
 type Tree = { [name: string]: string | Tree };
 
-/** Just enough of the File System Access API for the index: folders, files, reading. */
-function fakeDir(tree: Tree): FileSystemDirectoryHandle {
+/** Just enough of the File System Access API for the index: folders, files, reading. `listed` records every folder read. */
+function fakeDir(tree: Tree, listed: string[] = [], at = ''): FileSystemDirectoryHandle {
   const notFound = () => Promise.reject(Object.assign(new Error('not found'), { name: 'NotFoundError' }));
+  const sub = (name: string) => fakeDir(tree[name] as Tree, listed, at ? `${at}/${name}` : name);
   const dir = {
     kind: 'directory',
     async *entries() {
-      for (const [name, v] of Object.entries(tree)) yield [name, typeof v === 'string' ? file(name, () => tree[name] as string) : fakeDir(v)];
+      listed.push(at);
+      for (const [name, v] of Object.entries(tree)) yield [name, typeof v === 'string' ? file(tree, name) : sub(name)];
     },
-    getDirectoryHandle: (name: string) => (typeof tree[name] === 'object' ? Promise.resolve(fakeDir(tree[name] as Tree)) : notFound()),
-    getFileHandle: (name: string) => (typeof tree[name] === 'string' ? Promise.resolve(file(name, () => tree[name] as string)) : notFound()),
+    getDirectoryHandle: (name: string) => (typeof tree[name] === 'object' ? Promise.resolve(sub(name)) : notFound()),
+    getFileHandle: (name: string) => (typeof tree[name] === 'string' ? Promise.resolve(file(tree, name)) : notFound()),
+    resolve: async (h: unknown) => pathTo(tree, h),
   };
   return dir as unknown as FileSystemDirectoryHandle;
 }
 
-function file(name: string, text: () => string) {
-  return { kind: 'file', name, getFile: async () => new File([text()], name) };
+const files = new WeakMap<Tree, Map<string, object>>();
+
+/** One handle per file, so `isSameEntry` can compare identities. */
+function file(tree: Tree, name: string): object {
+  const known = files.get(tree) ?? new Map<string, object>();
+  files.set(tree, known);
+  const h: object = known.get(name) ?? {
+    kind: 'file', name,
+    getFile: async () => new File([tree[name] as string], name),
+    isSameEntry: async (other: unknown) => other === h,
+  };
+  known.set(name, h);
+  return h;
+}
+
+function pathTo(tree: Tree, h: unknown): string[] | null {
+  for (const [name, v] of Object.entries(tree)) {
+    if (typeof v === 'string' && files.get(tree)?.get(name) === h) return [name];
+    const below = typeof v === 'object' ? pathTo(v, h) : null;
+    if (below) return [name, ...below];
+  }
+  return null;
 }
 
 const A = 'vault-a' as VaultId;
@@ -108,10 +132,54 @@ describe('NotebookIndex', () => {
       expect(await index.locate(doc('d9'), 'new.pdf', undefined, { vault: 'gone' as VaultId, dir: '' })).toEqual({ kind: 'db', docId: 'd9' });
     });
 
+    it("in a PDF folder, reads only the PDF's own folder and puts a new notebook beside the PDF", async () => {
+      const listed: string[] = [];
+      const t: Tree = {
+        'a.pdf': '', 'renamed.md': note('d1'), 'b.pdf': '', 'b.md': note('other'),
+        'huge': { 'deep': { 'c.md': note('d3') } }, 'papers': { 'c.pdf': '' },
+      };
+      const index = new NotebookIndex();
+      index.attach({ id: A, handle: fakeDir(t, listed) });
+      expect(await index.locate(doc('d1'), 'a.pdf', { vault: A, path: 'a.pdf' }, null)).toMatchObject({ vault: A, path: 'renamed.md' });
+      expect(await index.locate(doc('d2'), 'b.pdf', { vault: A, path: 'b.pdf' }, null)).toMatchObject({ vault: A, path: 'b (2).md' });
+      expect(await index.locate(doc('d3'), 'c.pdf', { vault: A, path: 'papers/c.pdf' }, null)).toMatchObject({ vault: A, path: 'papers/c.md' });
+      expect(await index.find(doc('d3'))).toBeUndefined();
+      expect(listed.filter((p) => p.startsWith('huge'))).toEqual([]);
+    });
+
+    it('in a PDF folder, keeps notes known from earlier sessions and drops one that no longer names the document', async () => {
+      const t: Tree = { 'sub': { 'x.pdf': '', 'x.md': note('d1') }, 'y.md': note('d2') };
+      const index = new NotebookIndex();
+      index.restore({ [doc('d1')]: { vault: A, path: 'sub/x.md' }, [doc('d2')]: { vault: A, path: 'y.md' } });
+      index.attach({ id: A, handle: fakeDir(t) });
+      expect(index.get(doc('d1'))).toEqual({ vault: A, path: 'sub/x.md' });
+      t['y.md'] = note('d9');
+      expect(await index.find(doc('d2'))).toBeUndefined();
+    });
+
     it('returns a notebook in a vault it cannot read, so the reader can ask for access', async () => {
       const index = new NotebookIndex();
       index.restore({ [doc('d1')]: { vault: B, path: 'n.md' } });
       expect(await index.locate(doc('d1'), 'p.pdf', undefined, null)).toMatchObject({ vault: B, path: 'n.md' });
     });
+  });
+});
+
+describe('placeIn', () => {
+  const root = fakeDir({ 'a.pdf': '', 'sub': { 'b.pdf': '' } });
+
+  it("finds a PDF among the folder's entries or below it, and nothing elsewhere", async () => {
+    const sub = await root.getDirectoryHandle('sub');
+    expect(await placeIn(root, await root.getFileHandle('a.pdf'))).toBe('a.pdf');
+    expect(await placeIn(root, await sub.getFileHandle('b.pdf'))).toBe('sub/b.pdf');
+    expect(await placeIn(sub, await root.getFileHandle('a.pdf'))).toBeNull();
+  });
+});
+
+describe('freePath', () => {
+  it('never takes the name of an existing note', async () => {
+    const root = fakeDir({ 'p.md': note('other'), 'p (2).md': '', 'q.pdf': '' });
+    expect(await freePath(root, 'p.md')).toBe('p (3).md');
+    expect(await freePath(root, 'q.md')).toBe('q.md');
   });
 });

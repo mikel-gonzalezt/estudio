@@ -19,8 +19,12 @@ export interface DocRecord {
 
 export type VaultId = string & { __brand: 'VaultId' };
 
-/** A folder the reader works in, Obsidian style. The handle keeps its access grant across restarts. */
-export interface Vault { id: VaultId; name: string; handle: FileSystemDirectoryHandle; addedAt: number; openedAt: number }
+/**
+ * A folder the reader works in, Obsidian style. The handle keeps its access grant across restarts.
+ * A `pdfFolder` is not a vault to the user: it is a folder of PDFs opened from outside any vault,
+ * granted once so their notebooks can be written beside them. It is never listed or shown as a tree.
+ */
+export interface Vault { id: VaultId; name: string; handle: FileSystemDirectoryHandle; addedAt: number; openedAt: number; pdfFolder?: true }
 
 /** A file in a vault: the vault and its '/'-separated path from the vault root. */
 export interface NotebookLoc { vault: VaultId; path: string }

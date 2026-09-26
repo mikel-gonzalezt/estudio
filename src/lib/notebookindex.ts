@@ -2,7 +2,7 @@ import { getNotebookIndex, putNotebookIndex } from './db';
 import type { NotebookHome } from './notebookstore';
 import { notebookIdIn } from './frontmatter';
 import type { DocId, NotebookLoc, Vault, VaultFolder, VaultId } from './types';
-import { fileOrNull, freePath, headOf, markdownHeads } from './vault';
+import { dirAt, fileOrNull, freePath, headOf, markdownHeads } from './vault';
 import { joinPath, parentOf, stemOf, type VaultPath } from './vaulttree';
 
 /** Where `path` ends up when `from` (a file or a folder) is moved to `to`; null when it is not inside `from`. */
@@ -42,6 +42,8 @@ export class NotebookIndex implements NotebookTracker {
   /** What earlier sessions knew; used for vaults that have not been scanned in this one. */
   readonly #remembered = new Map<DocId, NotebookLoc>();
   readonly #roots = new Map<VaultId, FileSystemDirectoryHandle>();
+  /** Folders granted for notebooks beside PDFs outside vaults. They may be as big as Downloads, so they are never walked whole. */
+  readonly #shallow = new Set<VaultId>();
   #pending: Promise<unknown> = Promise.resolve();
   #persistTimer: ReturnType<typeof setTimeout> | undefined;
   readonly #persist: (entries: Record<DocId, NotebookLoc>) => Promise<void>;
@@ -106,6 +108,7 @@ export class NotebookIndex implements NotebookTracker {
   /** The vault was removed from Estudio. */
   forget(vault: VaultId) {
     this.#roots.delete(vault);
+    this.#shallow.delete(vault);
     this.#found.delete(vault);
     for (const [id, loc] of this.#remembered) if (loc.vault === vault) this.#remembered.delete(id);
     this.#changed();
@@ -114,6 +117,7 @@ export class NotebookIndex implements NotebookTracker {
   /** Reads the frontmatter of every note in `vault` and replaces what the index held for it. */
   scan(vault: Pick<Vault, 'id' | 'handle'>): Promise<void> {
     this.#roots.set(vault.id, vault.handle);
+    this.#shallow.delete(vault.id);
     const run = markdownHeads(vault.handle).then((heads) => {
       this.#found.set(vault.id, notebooksIn(heads));
       this.#changed();
@@ -122,8 +126,28 @@ export class NotebookIndex implements NotebookTracker {
     return run;
   }
 
+  /** Makes a PDF folder readable without scanning it; its notes are looked for one folder at a time, as its PDFs open. */
+  attach(folder: Pick<Vault, 'id' | 'handle'>) {
+    this.#roots.set(folder.id, folder.handle);
+    this.#shallow.add(folder.id);
+    if (this.#found.has(folder.id)) return;
+    const known = [...this.#remembered].filter(([, loc]) => loc.vault === folder.id);
+    this.#found.set(folder.id, new Map(known.map(([id, loc]) => [id, loc.path])));
+  }
+
+  /** Reads the notes directly in `dir` of a PDF folder and replaces what the index held for that folder alone. */
+  async #scanDir(vault: VaultId, dir: VaultPath): Promise<void> {
+    const found = this.#found.get(vault);
+    const root = this.#roots.get(vault);
+    if (!found || !root) return;
+    const heads = await dirAt(root, dir).then((d) => markdownHeads(d, dir, false), () => []);
+    for (const [id, path] of found) if (parentOf(path) === dir) found.delete(id);
+    for (const [id, path] of notebooksIn(heads)) if (!found.has(id)) found.set(id, path);
+    this.#changed();
+  }
+
   async rescan(): Promise<void> {
-    await Promise.all([...this.#roots].map(([id, handle]) => this.scan({ id, handle })));
+    await Promise.all([...this.#roots].filter(([id]) => !this.#shallow.has(id)).map(([id, handle]) => this.scan({ id, handle })));
   }
 
   /** Waits for scans in progress. */
@@ -137,6 +161,10 @@ export class NotebookIndex implements NotebookTracker {
 
   async find(docId: DocId): Promise<NotebookLoc | undefined> {
     await this.rescan();
+    const hit = this.get(docId);
+    if (!hit || !this.#shallow.has(hit.vault) || (await this.#idAt(hit)) === docId) return hit;
+    this.#found.get(hit.vault)?.delete(docId);
+    this.#changed();
     return this.get(docId);
   }
 
@@ -153,13 +181,15 @@ export class NotebookIndex implements NotebookTracker {
 
   /**
    * Where a document's notebook is: the file whose frontmatter names it (checked again, and the
-   * vaults rescanned if it moved behind Estudio's back); else a `<name>.md` beside a vault PDF that
-   * names no other document, adopted as is; else a new file where new notebooks go; else the database.
+   * vaults rescanned if it moved behind Estudio's back; in a PDF folder only the PDF's own folder is
+   * read); else a `<name>.md` beside the PDF, in a vault or a PDF folder, that names no other
+   * document, adopted as is; else a new file where new notebooks go; else the database.
    * A notebook known to be in a vault Estudio cannot read right now is returned as is: asking for
    * access beats starting a second notebook.
    */
   async locate(docId: DocId, pdfName: string, pdf: NotebookLoc | undefined, target: VaultFolder | null): Promise<NotebookHome> {
     await this.ready();
+    if (pdf && this.#shallow.has(pdf.vault)) await this.#scanDir(pdf.vault, parentOf(pdf.path));
     const home = (loc: NotebookLoc): NotebookHome => ({ kind: 'vault', docId, vault: loc.vault, path: loc.path, pdfName });
     let hit = this.get(docId);
     if (hit && this.readable(hit.vault) && (await this.#idAt(hit)) !== docId) hit = await this.find(docId);

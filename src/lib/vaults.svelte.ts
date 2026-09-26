@@ -1,15 +1,15 @@
 import { deleteVault, listVaults, putVault } from './db';
 import { askPermission, hasPermission } from './fsaccess';
 import { notebookIndex, restoreNotebookIndex } from './notebookindex';
-import type { Vault, VaultId } from './types';
-import { dirAt, fileAt, moveEntry, pathIn, removeEntry, walk, writeFile } from './vault';
+import type { NotebookLoc, Vault, VaultId } from './types';
+import { dirAt, fileAt, moveEntry, pathIn, placeIn, removeEntry, walk, writeFile } from './vault';
 import {
   EMPTY_TREE, ROOT, buildTree, canMove, checkName, companionsOf, joinPath, nameOf, parentOf, resolvePdfLink, stemOf, uniqueName,
   type NameProblem, type Tree, type VaultPath,
 } from './vaulttree';
 
 type DirPickerWindow = Window & {
-  showDirectoryPicker?: (o: object) => Promise<FileSystemDirectoryHandle>;
+  showDirectoryPicker?: (o: { mode: 'readwrite'; id: string; startIn?: FileSystemHandle }) => Promise<FileSystemDirectoryHandle>;
   showOpenFilePicker?: (o: object) => Promise<FileSystemFileHandle[]>;
 };
 
@@ -21,13 +21,15 @@ const PROBLEM: Record<NameProblem, string> = {
 
 class Vaults {
   list = $state.raw<Vault[]>([]);
+  /** Folders of PDFs opened from outside any vault, granted so their notebooks sit beside them. Never shown as vaults. */
+  grants = $state.raw<Vault[]>([]);
   current = $state.raw<Vault | null>(null);
   tree = $state.raw<Tree>(EMPTY_TREE);
   /** Folders shown open in the tree. */
   expanded = $state.raw<ReadonlySet<VaultPath>>(new Set());
   /** Where "New note", "New folder" and "Import" put things. */
   folder = $state<VaultPath>(ROOT);
-  /** Vaults whose access grant lapsed after a restart; one click re-grants it. */
+  /** Vaults and PDF folders whose access grant lapsed after a restart; one click re-grants it. */
   locked = $state.raw<ReadonlySet<VaultId>>(new Set());
   error = $state('');
 
@@ -36,11 +38,14 @@ class Vaults {
   }
 
   async init() {
-    [this.list] = await Promise.all([listVaults(), restoreNotebookIndex()]);
+    const [all] = await Promise.all([listVaults(), restoreNotebookIndex()]);
+    this.list = all.filter((v) => !v.pdfFolder);
+    this.grants = all.filter((v) => v.pdfFolder);
     const locked = new Set<VaultId>();
-    for (const v of this.list) if (!(await hasPermission(v.handle, 'readwrite'))) locked.add(v.id);
+    for (const v of all) if (!(await hasPermission(v.handle, 'readwrite'))) locked.add(v.id);
     this.locked = locked;
     for (const v of this.list) if (!locked.has(v.id)) void notebookIndex.scan(v);
+    for (const g of this.grants) if (!locked.has(g.id)) notebookIndex.attach(g);
     const last = this.list[0];
     if (last && !locked.has(last.id)) await this.#activate(last);
   }
@@ -58,8 +63,10 @@ class Vaults {
     for (const v of this.list) {
       if (await v.handle.isSameEntry(handle)) return this.open(v);
     }
+    const grant = await this.#sameAs(this.grants, handle);
     const now = Date.now();
-    const v: Vault = { id: crypto.randomUUID() as VaultId, name: handle.name, handle, addedAt: now, openedAt: now };
+    const v: Vault = { id: grant?.id ?? (crypto.randomUUID() as VaultId), name: handle.name, handle, addedAt: now, openedAt: now };
+    this.grants = this.grants.filter((g) => g.id !== v.id);
     await putVault(v);
     this.list = [v, ...this.list];
     void notebookIndex.scan(v);
@@ -75,16 +82,64 @@ class Vaults {
     await this.#activate(v);
   }
 
-  /** Asks for access to a vault whose grant lapsed, without switching to it; call from a click. */
+  /** Asks for access to a vault or PDF folder whose grant lapsed, without switching to it; call from a click. */
   async unlock(v: Vault): Promise<boolean> {
     if (!(await askPermission(v.handle, 'readwrite'))) return false;
     if (this.locked.has(v.id)) {
       const locked = new Set(this.locked);
       locked.delete(v.id);
       this.locked = locked;
-      await notebookIndex.scan(v);
+      if (v.pdfFolder) notebookIndex.attach(v);
+      else await notebookIndex.scan(v);
     }
     return true;
+  }
+
+  /** A vault or a PDF folder. */
+  byId(id: VaultId): Vault | undefined {
+    return this.list.find((v) => v.id === id) ?? this.grants.find((g) => g.id === id);
+  }
+
+  /** The granted PDF folder holding `pdf`, and the PDF's path in it. Never prompts. */
+  async folderOf(pdf: FileSystemFileHandle): Promise<NotebookLoc | undefined> {
+    for (const g of this.grants) {
+      const path = await pathIn(g.handle, pdf);
+      if (path) return { vault: g.id, path };
+    }
+    return undefined;
+  }
+
+  /**
+   * The folder holding `pdf`, for writing its notebook beside it: a granted PDF folder (asked for
+   * again if its grant lapsed), else a folder the user picks, which is kept as a PDF folder. A
+   * picked folder that does not hold the PDF grants nothing. Null when the user cancels. Call from a click.
+   */
+  async grantFolderOf(pdf: FileSystemFileHandle): Promise<NotebookLoc | 'elsewhere' | null> {
+    const known = await this.folderOf(pdf);
+    if (known) return (await this.unlock(this.byId(known.vault)!)) ? known : null;
+    const w = window as DirPickerWindow;
+    if (!w.showDirectoryPicker) return null;
+    let handle: FileSystemDirectoryHandle;
+    try {
+      handle = await w.showDirectoryPicker({ mode: 'readwrite', startIn: pdf, id: 'pdf-folder' });
+    } catch {
+      return null;
+    }
+    const path = await placeIn(handle, pdf);
+    if (path === null) return 'elsewhere';
+    const same = await this.#sameAs([...this.list, ...this.grants], handle);
+    if (same) return (await this.unlock(same)) ? { vault: same.id, path } : null;
+    const now = Date.now();
+    const g: Vault = { id: crypto.randomUUID() as VaultId, name: handle.name, handle, addedAt: now, openedAt: now, pdfFolder: true };
+    await putVault(g);
+    this.grants = [...this.grants, g];
+    notebookIndex.attach(g);
+    return { vault: g.id, path };
+  }
+
+  async #sameAs(among: readonly Vault[], handle: FileSystemDirectoryHandle): Promise<Vault | undefined> {
+    for (const v of among) if (await v.handle.isSameEntry(handle)) return v;
+    return undefined;
   }
 
   async #activate(v: Vault) {

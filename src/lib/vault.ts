@@ -49,15 +49,16 @@ export async function headOf(file: FileSystemFileHandle): Promise<string> {
   return (await file.getFile()).slice(0, HEAD_BYTES).text();
 }
 
-/** Every Markdown file under `root` (ignored folders skipped) with the first bytes of its text. */
-export async function markdownHeads(root: Dir, prefix: VaultPath = ''): Promise<{ path: VaultPath; head: string }[]> {
+/** Every Markdown file under `root` (ignored folders skipped) with the first bytes of its text; only those directly in it when not `deep`. */
+export async function markdownHeads(root: Dir, prefix: VaultPath = '', deep = true): Promise<{ path: VaultPath; head: string }[]> {
   const out: { path: VaultPath; head: string }[] = [];
   const work: Promise<unknown>[] = [];
   for await (const [name, h] of (root as Iterable).entries()) {
     if (isIgnored(name)) continue;
     const path = joinPath(prefix, name);
-    if (h.kind === 'directory') work.push(markdownHeads(h as Dir, path).then((r) => out.push(...r)));
-    else if (/\.md$/i.test(name)) work.push(headOf(h as FileSystemFileHandle).then((head) => out.push({ path, head }), () => undefined));
+    if (h.kind === 'directory') {
+      if (deep) work.push(markdownHeads(h as Dir, path).then((r) => out.push(...r)));
+    } else if (/\.md$/i.test(name)) work.push(headOf(h as FileSystemFileHandle).then((head) => out.push({ path, head }), () => undefined));
   }
   await Promise.all(work);
   return out;
@@ -73,6 +74,18 @@ export async function writeFile(file: FileSystemFileHandle, data: Blob | BufferS
 export async function pathIn(root: Dir, handle: FileSystemHandle): Promise<VaultPath | null> {
   const parts = await root.resolve(handle).catch(() => null);
   return parts ? parts.join('/') : null;
+}
+
+/** The path of `file` inside `folder`: found among the folder's own entries, else anywhere below it; null when it lies elsewhere. */
+export async function placeIn(folder: Dir, file: FileSystemFileHandle): Promise<VaultPath | null> {
+  try {
+    for await (const [name, h] of (folder as Iterable).entries()) {
+      if (h.kind === 'file' && (await h.isSameEntry(file))) return name;
+    }
+  } catch {
+    return null;
+  }
+  return pathIn(folder, file);
 }
 
 async function copyInto(h: FileSystemHandle, dest: Dir, name: string): Promise<void> {
