@@ -19,6 +19,22 @@ Open a PDF with **Open PDF**, by dragging it onto the window, or from the recent
 
 To install a build as an app, open `npm run preview` or a deployed build in Chrome or Edge and click **Install Estudio**.
 
+The build serves the app from `/` unless the `BASE` environment variable names another path. GitHub Pages serves it from `/estudio/`:
+
+```powershell
+$env:BASE = '/estudio/'; npm run build; Remove-Item Env:BASE
+```
+
+`BASE` sets the asset URLs, the manifest's `start_url`, `scope` and file handler, and the service worker's scope. Leave it unset for the install script, whose copy lives at `/`.
+
+## Publishing to GitHub Pages
+
+`.github/workflows/pages.yml` runs on every push to `main` and on demand. It installs with `npm ci`, runs the tests, builds with `BASE=/estudio/` and deploys `dist/` to <https://mikel-gonzalezt.github.io/estudio/>. In the repository settings, **Pages › Source** must be **GitHub Actions**.
+
+## Content Security Policy
+
+`scripts/csp.mjs` holds the policy. The build writes it into `index.html` as a `<meta http-equiv>` tag, and `scripts/serve.mjs` also sends it as a header with `frame-ancestors 'none'`, which a `<meta>` tag can't carry. GitHub Pages can't set headers, so the hosted copy has the `<meta>` policy only. README.md lists what the policy allows and why.
+
 ## The Windows install script
 
 ```powershell
@@ -38,7 +54,7 @@ The first time, click **Install Estudio** at the top of the library, or the inst
 - is offered in Explorer under **Open with** for PDF files, and can be made the default PDF app in Windows settings,
 - works without the local server, because the service worker caches everything it needs.
 
-The library, cards and settings live in the Edge profile under `http://127.0.0.1:4173`, so keep the port fixed. `scripts/serve.mjs` hard-codes it for that reason. Run the install script again after pulling changes. The installed app switches to the new version the next time it shows the library.
+The library, cards and settings live in the Edge profile under `http://127.0.0.1:4173`, so keep the port fixed. `scripts/serve.mjs` uses 4173 unless `PORT` is set, and serves `dist/` unless `DIST` names another folder. Use both to test a second build without touching the installed one. Run the install script again after pulling changes. The installed app switches to the new version the next time it shows the library.
 
 `scripts\launch.ps1` starts the server if needed and opens Estudio in an app window. It is kept for starting Estudio by hand.
 
@@ -80,7 +96,7 @@ The library, cards and settings live in the Edge profile under `http://127.0.0.1
 - `src/lib/` holds framework-free modules: data types, geometry, the FSRS scheduler, the keyboard and command registry, IndexedDB access (`db.ts`), the file-system boundary (`vault.ts`, `fsaccess.ts`), and the exporters (`export/`).
 - `src/reader/` is the lazily loaded reader: the pdf.js engine, the virtualised viewer, the tools, and the panes. `notebook/` holds both notebook editors, `pins/` the pinned figures, `speech/` read aloud, and `review/` the card review screen.
 - `src/components/` holds the library screen and shared UI.
-- `scripts/` holds the Windows install script (`install.ps1`), the local server (`serve.mjs`), the launcher (`launch.ps1`) and the sample PDF generator (`make-sample-pdf.mjs`).
+- `scripts/` holds the Windows install script (`install.ps1`), the local server (`serve.mjs`), the Content Security Policy (`csp.mjs`), the launcher (`launch.ps1`) and the sample PDF generator (`make-sample-pdf.mjs`).
 
 ## Dependencies
 
