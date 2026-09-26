@@ -2,6 +2,27 @@
 
 A running log of what was built, what was decided, and what is pending. Newest session first.
 
+## 2026-09-26, session 4
+
+### Questions answered
+
+- **Does the local server need starting?** No. The server on 127.0.0.1:4173 only serves the app's files so it can be installed and updated. The installed app works offline without it, and `scripts/install.ps1` starts it, so nobody needs to start it by hand.
+
+### Fixed
+
+1. **Invalid formulas.** A formula KaTeX can't read used to show as red letters with no explanation. Now the LaTeX shows in the normal colour with a red wavy underline, like a spelling mistake, and hovering it says why (for example "Formula error: Undefined control sequence: \foo"). This works the same in Document mode, Markdown mode, the preview and printing. The formula editor shows the same message under the LaTeX field.
+2. **Edit / Read in Document mode.** Document mode now offers only Edit and Read. Split showed the same formatted view twice, and Preview was just the editor without its toolbar. Markdown mode keeps Write, Split and Preview. If Split was chosen in Markdown mode, Document mode opens in Edit.
+3. **Format table** appears only while the cursor is inside a table in Markdown mode. Alt+Shift+F still works.
+
+### How it was checked
+
+- 332 tests pass, including new ones for the formula error message and for "cursor in a table". The build passes.
+- In headless Edge we checked `$\foo x$` in Document mode, Read, Markdown mode and Split: each showed the underline and the tooltip. We also checked the Edit/Read tabs, going from Split to Document and back, Format table appearing and disappearing with the cursor, and the error in the formula editor.
+
+### Known gaps
+
+- Format table is not in the command palette. The palette only has reader commands and doesn't know about the notebook's editor.
+
 ## 2026-09-26, session 3
 
 ### Questions answered
