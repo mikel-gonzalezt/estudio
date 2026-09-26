@@ -55,10 +55,13 @@ Read this file first. Suggested order: a small settings screen; then whatever re
    - **Not a vault:** the granted folder is not shown in the vault list or the Files tree. Estudio reads only the PDF's own folder in it, never the whole folder, because it may be Downloads.
    - **No handle:** a PDF opened through the plain file input offers only a vault folder or the notes download, and says why.
    - **Failures:** if a write fails, the files written so far are removed and the IndexedDB notebook stays in use.
+2. **Lead follow-ups after review.**
+   - **Missing images in a PDF folder:** an image that can't be found in a granted folder no longer triggers a search of the whole folder. This is tested.
+   - **Long titles:** a long document title no longer pushes the toolbar tools into each other. Only the title shrinks, with "…". Checked in headless Edge at 1000–1450 px.
 
 ### How it was checked
 
-- 374 tests pass, including new ones for the offer table, the shallow PDF-folder lookup, `placeIn` and name uniqueness. The build passes.
+- 376 tests pass, including new ones for the offer table, the shallow PDF-folder lookup, `placeIn` and name uniqueness. The build passes.
 - In headless Edge with OPFS folders, 37 checks passed. They covered the label and menu, a wrong folder writing nothing, and a failed `.md` write leaving no file while IndexedDB stays in use. The move wrote `paper (2).md` beside an unrelated `paper.md`, with frontmatter and a rewritten image reference. Edits and the pop-out wrote the file, and reopening found it. A second PDF got `second.md` with no picker. The folder was absent from the vault list and Files tree, a vault PDF behaved as before, and a PDF opened without a handle got the reduced menu.
 
 ### Known gaps
@@ -66,7 +69,6 @@ Read this file first. Suggested order: a small settings screen; then whatever re
 - **Lapsed grants:** the one-click "Allow access" after a restart was not exercised, because OPFS never loses its grant.
 - **Real disk:** "Open with" and the real folder picker were not driven. The test opened PDFs through the Open PDF picker with OPFS handles.
 - **Existing notebook in the picked folder:** if the picked folder already holds a notebook file for this PDF, "Next to the PDF" still writes a new `name (2).md`, and the index then prefers one of the two.
-- **Broken image links:** in a PDF folder, an image reference that resolves nowhere still falls back to searching the whole folder by name.
 
 ## 2026-09-26, session 5
 
