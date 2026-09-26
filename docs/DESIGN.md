@@ -39,6 +39,7 @@ interface DocRecord {
   addedAt: number; openedAt: number; readingMs: number;
   handle?: FileSystemFileHandle;                                // reopen without picker, and save into (Chromium)
   syncBase?: Record<AnnId, number>;                             // each annotation's updatedAt when `handle`'s file and Estudio last agreed
+  pins?: AnnId[];                                               // area clips pinned to the figure panel (see Pinned figures)
 }
 
 interface Vault { id: VaultId; name: string; handle: FileSystemDirectoryHandle; addedAt: number; openedAt: number }
@@ -168,6 +169,16 @@ Custom nodes live in `docmode/schema.ts`. `pageLink` is an atom chip, clicked to
 - The formula editor (`FormulaDialog.svelte`, `formula.svelte.ts`) is shared by both modes and loads MathLive when it first opens, with MathLive's virtual keyboard shown straight away. Its fonts are copied to `dist/mathlive/fonts/` by the same Vite plugin that copies pdf.js's assets.
 - "Notes as PDF" (`src/reader/printnotes.ts`) renders the notebook with `renderMarkdown(…, { plainLinks: true })`, so page links read "p. 12" or "Intro (p. 12)", waits for images and maths, and calls `window.print()`. A print stylesheet hides the rest of the app.
 
+## Pinned figures
+
+Textbooks say "see Figure 3" pages away from Figure 3. Any area clip can be pinned (Pin in its popover, or `Alt+P` while it is selected, including straight after drawing it) and is then kept in a floating panel over the page view, as Sioyek's portals are. The feature is one folder, `src/reader/pins/`, mounted once in `Reader.svelte` (`PinsMount`), with one button in the area popover (`PinButton`) and one spread of commands (`pinCommands`). Reverting its `pins`-scoped commits removes it; the `pins` ids left on stored documents and the two settings keys are then ignored.
+
+- Data. `DocRecord.pins` lists the pinned annotation ids. The panel shows the ids that still name an area clip, so deleting a clip unpins it and undo brings the pin back; the stored list drops dead ids on its next write. The panel's place (`right` and `bottom` from the page view's bottom-right corner, width, height), collapsed, hidden and follow are `Settings.pinPanel`; `Settings.pinnedFigures` (on by default, "Pinned figures: turn off / on" in the palette) hides the panel, the popover button and the other commands.
+- Following. With Follow on (default), the panel shows the figure `pinToShow` (`pins/pick.ts`, tested) picks for the page being read: a figure on that page, else the nearest one ahead within three pages, else the nearest in either direction. Previous / next override it until following would pick a different figure. Clicking the figure is a jump, so `Alt+Left` returns.
+- Drawing. Only the figure on show is drawn, by `drawRegion` in `src/reader/pdf.ts` (shared with "Send to notes") into a fresh canvas at the panel's device-pixel size (capped at 8 MP), swapped in when done and cancelled when the figure, size or pixel ratio changes. The page mode is applied as the page view's CSS filter. With nothing pinned nothing is mounted beyond `PinsMount`.
+- Own window. "Open in its own window" opens a blank same-origin window and mounts the same panel into it from the reader window, with a copy of its stylesheets, so it shares the open document, the renderer and the reading position without a sync protocol or a second pdf.js instance. Two consequences: pdf.js registers the PDF's fonts in the reader's document, so the figure is drawn there and its pixels copied into the window; and pdf.js paces rendering with the reader window's animation frames, which stop while the pop-out covers it, so those renders run unpaced (a small figure renders in one go). The window closes when the reader closes or reloads.
+- Size. The panel is in the reader chunk rather than a chunk of its own: loading it lazily from the reader chunk made Rolldown split five shared modules out of the entry chunk (more requests and 1.4 kB gzip on every start), while in the reader chunk it costs 3.7 kB gzip there and nothing at start.
+
 ## Installing and updating
 
 The manifest registers Estudio for `application/pdf` / `.pdf` (`file_handlers`) with `launch_handler: focus-existing`, so a PDF opened from Explorer arrives through `launchQueue` in the window that is already open. The library shows "Install Estudio" while the browser offers installation. The service worker precaches the app shell, the reader and note chunks, the pdf.js worker, the pdf-lib worker, and pdf.js cmaps, standard fonts and wasm decoders, so the installed app opens and saves PDFs with the local server stopped. Updates use prompt mode: a new version waits while a document is open and is applied (one reload) once the library is showing and pending saves have finished.
@@ -184,6 +195,7 @@ Reading
 - Themes: light, dark UI, and page modes: normal, dark (inverted pages), sepia.
 - Fit text width (`w`, the toolbar button, or a two-finger tap on touch screens) scales the current page's text column to the viewport and centres it, cropping the margins out of view. The column is the union of the page's horizontal text boxes (rotated margin stamps are ignored; a page without text uses the full page), cached per page. Pressing it again returns to the previous zoom.
 - Resume at last page and zoom. Reading timer per document.
+- Pinned figures: area clips kept in a floating panel that follows the reading position, or in their own window (see Pinned figures).
 - Hover a link to a figure/section to preview its destination (Sioyek "smart jump" style) — internal links only in v1.
 - When the hovered link lands on a bibliography entry, the preview shows the entry as text instead of a page crop. The entry is read from the destination page's text, from the destination down to the next entry. It offers "Open paper" for a DOI, arXiv id or URL found in the entry, otherwise "Search Scholar" with the likely title. The preview stays open while the pointer moves onto it.
 
@@ -213,7 +225,7 @@ Layout
 
 Keyboard and discovery
 - Command palette (Ctrl+K) listing every action with its shortcut.
-- `j/k` scroll, `J/K` or PgDn/PgUp page, `g` go to page, `h` highlight tool, `u` underline, `p` pen, `n` note, `e` eraser, `v`/Esc select, `1`–`6` colour, `/` or Ctrl+F search, `f` focus mode, `r` ruler, `b` toggle sidebar, `W` widen notebook. In the notebook editor: Ctrl+L link current page, `[[` link completion, and the formatting keys above. The editor keeps its own keys: reader shortcuts never fire while typing in it.
+- `j/k` scroll, `J/K` or PgDn/PgUp page, `g` go to page, `h` highlight tool, `u` underline, `p` pen, `n` note, `e` eraser, `v`/Esc select, `1`–`6` colour, `/` or Ctrl+F search, `f` focus mode, `r` ruler, `b` toggle sidebar, `W` widen notebook, `P` show / hide pinned figures, `Alt+P` pin / unpin the selected area clip. In the notebook editor: Ctrl+L link current page, `[[` link completion, and the formatting keys above. The editor keeps its own keys: reader shortcuts never fire while typing in it.
 
 Export and safety
 - Export highlights + notes + notebook to Markdown (Obsidian-friendly).
@@ -237,4 +249,4 @@ Export and safety
 
 ## Later (tablet / mobile / v2)
 
-Tauri shell; touch gestures (pinch zoom, two-finger scroll while pen draws); split view of the same document; "portals" (pin a figure next to the text that references it); cross-document concept map; OCR for scanned PDFs; optional AI explain/summarise of a selection; sync.
+Tauri shell; touch gestures (pinch zoom, two-finger scroll while pen draws); split view of the same document; cross-document concept map; OCR for scanned PDFs; optional AI explain/summarise of a selection; sync.

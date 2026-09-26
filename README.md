@@ -24,6 +24,10 @@ Edge creates the app's own **Estudio** shortcuts when you install it. Earlier ve
 
 When a PDF is opened from disk (Open with, Open PDF, drag and drop, or a vault), highlights, drawings, notes and area clips are written into that file a few seconds after each change and when you close it. The status bar shows **Saved to file**, **Saving…**, or **Unsaved (click to allow)** when the browser needs your permission to write; click it once. Nothing is lost meanwhile, because Estudio keeps its own copy until the file is written. If another app changed the annotations in the file, both sets are merged.
 
+## Pinned figures
+
+Draw an area clip around a figure and press **Pin** (or `Alt+P`). The figure stays in a small panel at the bottom right of the page while you read on, so "see Figure 3" no longer means scrolling back. With several pinned, **Follow** shows the one nearest the page you are reading; the arrows step through them. Click the figure to go to its page (`Alt+Left` returns). Drag the panel by its header, resize it from its top-left corner, collapse it to a tab, or open it in its own window for a second monitor. `P` hides and shows it. To switch the feature off, run **Pinned figures: turn off** from the command palette (`Ctrl+K`).
+
 ## Vaults
 
 **Open vault** turns a folder into a vault, like Obsidian. The Files tree, on the library and in the reader's left sidebar, shows its folders, PDFs and Markdown notes. Right-click (or F2 and Del) to rename and delete, drag to move, and use the tree's toolbar to add notes and folders or import PDFs. A PDF's notebook is a Markdown file whose frontmatter names the PDF (`estudio-doc:` and `pdf: "[[paper.pdf]]"`), and every page link written there names the PDF so Obsidian can follow it (`[[paper.pdf#page=3|p. 3]]`). Because the pairing is in the file, you can move or rename the note anywhere, even into another vault you have opened in Estudio (your Obsidian vault, say), and the PDF still finds it. New notebooks go next to their PDF by default; the notebook's ⋯ menu can send them to a folder of your choice instead, and can move a notebook kept inside Estudio into a vault. Older `<name>.md` notebooks next to their PDF are picked up as before and get the frontmatter on their next save. Other properties you add to a notebook are kept. Notes open in the same editor; clicking a link such as `[[paper.pdf#page=3]]` in a note opens that PDF from the vault at page 3. A link names a file by name or by path; a bare name is looked up next to the note first, then anywhere in the vault.
@@ -87,6 +91,8 @@ To install as an app, open the preview or a deployed build in Chrome or Edge and
 | `Alt+Shift+F` (Markdown mode) | Line up the pipes of the table at the cursor |
 | `Tab` / `Shift+Tab` (in the notebook) | Indent / outdent list items |
 | Arrow keys on a pane handle | Resize the pane (Shift for bigger steps, double-click to reset) |
+| `P` | Show / hide the pinned figures panel |
+| `Alt+P` | Pin / unpin the selected area clip |
 | `R` | Review due cards |
 | `f`, `r` | Focus mode, reading ruler |
 
