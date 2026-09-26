@@ -13,6 +13,7 @@
 - `pdfjs-dist` for parsing, rendering, text layer, outline, search.
 - `idb` for IndexedDB.
 - `pdf-lib` for reading and writing annotations inside PDF files. It runs in a Web Worker (`src/lib/pdfannots.worker.ts`) when saving to a file, and is loaded with dynamic `import()` for exports; it is never in the initial chunk.
+- `docx`, `temml` and `mdast-util-from-markdown` (with the GFM and maths extensions) for "Notes as Word (.docx)" (`src/lib/export/docx.ts`). Formulas become native Word equations through LaTeX → MathML (temml) → OMML (`src/lib/export/omml.ts`); MathML outside that mapping is drawn to a PNG by the browser instead. All of it sits in one chunk loaded with dynamic `import()` when the export runs.
 - `vite-plugin-pwa` for the service worker and manifest.
 - CodeMirror 6 (`@codemirror/*`) for the notebook editor, loaded with dynamic `import()` the first time an editor mounts. `markdownLanguage` is used instead of `markdown()` so `@codemirror/lang-html` stays out of the bundle.
 - Vitest for pure logic (scheduler, geometry, exporters). Playwright for end-to-end.
