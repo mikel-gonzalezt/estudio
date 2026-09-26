@@ -6,6 +6,7 @@ import { TOOL_IDS, TOOLS } from './tools';
 import { exportMarkdownFile, exportPdfFile, printNotesFile } from './exports';
 import { downloadBackup } from '../lib/backupio';
 import { pinCommands } from './pins/commands';
+import { speechCommands } from './speech/entry.svelte';
 
 const focusGoto = () => {
   const el = document.getElementById('goto-page') as HTMLInputElement | null;
@@ -97,5 +98,6 @@ export function readerCommands(r: Reader, ui: ReaderUi): Command[] {
     { id: 'export.backup', title: 'Download full JSON backup', group: 'Export', run: () => void downloadBackup() },
     ...pinCommands(r),
     { id: 'app.library', title: 'Close document (back to library)', group: 'App', run: () => app.close() },
+    ...speechCommands(r),
   ];
 }

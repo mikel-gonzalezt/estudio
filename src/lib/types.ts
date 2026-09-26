@@ -101,6 +101,12 @@ export interface Settings {
   /** Pinned figures: area clips kept in a floating panel over the reader. Off hides every trace of it. */
   pinnedFigures: boolean;
   pinPanel: PinPanelLayout;
+  /** Read aloud shows its buttons, key and commands. */
+  readAloud: boolean;
+  /** Speaking rate, 1 being the voice's normal speed. */
+  speechRate: number;
+  /** The voice (`voiceURI`) chosen for each document language; '' holds the choice for undetected languages. */
+  speechVoices: Record<string, string>;
 }
 
 /** The pinned-figure panel, placed by its distance in CSS px from the bottom-right corner of the page view. */
@@ -122,6 +128,9 @@ export const DEFAULT_SETTINGS: Settings = {
   editorMode: 'document',
   pinnedFigures: true,
   pinPanel: { right: 16, bottom: 16, w: 320, h: 260, collapsed: false, hidden: false, follow: true },
+  readAloud: true,
+  speechRate: 1,
+  speechVoices: {},
 };
 
 export function newId<T extends AnnId | CardId>(): T {

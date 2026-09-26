@@ -28,6 +28,7 @@
   import Toolbar from './Toolbar.svelte';
   import Viewer from './Viewer.svelte';
   import PinsMount from './pins/PinsMount.svelte';
+  import { readAloud } from './speech/entry.svelte';
 
   let { request }: { request: PdfRequest } = $props();
 
@@ -54,6 +55,7 @@
 
   onDestroy(() => {
     document.title = 'Estudio';
+    readAloud.close();
     if (reader) {
       const r = reader;
       void app.track(Promise.all([r.save(), r.study.dispose(), r.sync?.save()]).finally(() => r.pdf.loadingTask.destroy()));
@@ -188,6 +190,7 @@
       <PinsMount {reader} />
       {#if reader.search.open}<SearchBar {reader} />{/if}
       {#if reader.ruler}<Ruler band={Math.max(22, 26 * reader.scale)} />{/if}
+      {#if readAloud.loaded}{@const { Bar, speaker } = readAloud.loaded}<Bar {speaker} />{/if}
       {#if reader.focus}<button class="exit-focus" onclick={() => (reader!.focus = false)}>Exit focus <kbd>f</kbd></button>{/if}
     </main>
     {#if reader.study.rightOpen && !reader.focus}
