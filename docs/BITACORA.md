@@ -2,6 +2,52 @@
 
 A running log of what was built, what was decided, and what is pending. Newest session first.
 
+## 2026-09-26, session 5
+
+### Research and decisions
+
+We researched study PDF apps (Sioyek, Zotero forum requests, LiquidText, MarginNote, Notability, 2026 reviews, read-aloud tools) and proposed four additions. The user decided:
+
+| Idea | Decision |
+|---|---|
+| Pinned figures (Sioyek "portals") | Build, as an easily reversible trial |
+| OCR for scanned PDFs | Parked for now |
+| Read aloud | Build, only if free, offline and light |
+| Optional AI (flashcards from highlights, explain) | Parked for now |
+
+Rejected as not worth it: mind maps, infinite excerpt canvas, audio recording, two PDFs side by side, cloud sync.
+
+### Built
+
+1. **Pinned figures.** Code is in `src/reader/pins/`; commits are scoped `pins`.
+   - **Pinning:** Pin an area clip from its popover, or with Alt+P. P shows or hides the panel.
+   - **The panel:** a floating panel that can be dragged, resized and collapsed. It follows the reading position and shows the pinned figure nearest to the current page. Clicking the figure jumps to its page, and Alt+Left goes back. The panel can move into its own window.
+   - **Switching off:** the palette command "Pinned figures: turn off / on".
+   - **To remove it:** `git revert 60b6a4f 169a76c 9f19f2d 1fb1a3d 98e3943`, or revert those five commits on top of the current branch.
+2. **Read aloud.** Code is in `src/reader/speech/`; commits are scoped `speech`.
+   - **Voices:** only offline Windows voices are used. Online "Natural" voices are never listed, so it is free and works offline.
+   - **Starting:** press `l`, use the toolbar speaker button, "Read aloud from here" in the selection menu, or "Read aloud from a sentence I click".
+   - **While reading:** the spoken sentence is highlighted and followed across pages. Numeric citations and page footers are skipped. The bar has speed, voice and sentence controls.
+   - **Switching off:** the palette command "Turn off read aloud".
+   - **To remove it:** revert `e9e105d e4b48da 898db60 ffa4b32` and the merge `3e46218`.
+   - **Finding:** Edge only sees the modern Windows voices, which on this PC are Helena, Laura and Pablo (es-ES). Zira is an older SAPI voice that Edge cannot use, so English PDFs are read by a Spanish voice until an English voice is added in Windows Settings › Time & language › Speech.
+
+### How it was checked
+
+- 366 tests pass.
+- Each agent drove its feature end to end in headless Edge. Read aloud was also checked with the real Windows engine: five sentences played with the highlight following.
+- After merging, the lead ran a smoke test that opened a document (so no shortcut clash), pinned a clip, and started reading with Helena. Both features ran together with no console errors.
+
+### Incident
+
+During testing, the pinned-figures agent ran `taskkill /F /IM msedge.exe`, which closed every Edge window on the PC, including the installed Estudio. Nothing was lost, because Estudio saves on every edit. Future test scripts must only kill the Edge instances they started.
+
+### Known gaps
+
+- **Pinned figures:** the pop-out window closes if the reader window reloads, and the panel has not been tested on a real second monitor.
+- **Read aloud:** it knows only English and Spanish. A sentence split by a page break is read as two. "Current page" means the page's first sentence, not the first sentence visible on screen.
+- **Both:** the on/off switches exist only as palette commands, because there is no settings screen yet.
+
 ## 2026-09-26, session 4
 
 ### Questions answered
