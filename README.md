@@ -12,7 +12,7 @@ Estudio is a PDF reader for studying. You highlight in colours that mean somethi
 
 ## Features
 
-**Read.** A fast viewer with outline, thumbnails and search. Fit text width (`w`) crops the margins. Dark and sepia pages, a focus mode and a reading ruler. Hovering a citation previews the reference, with **Open paper** or **Search Scholar**. Read aloud uses the voices installed in Windows.
+**Read.** Each PDF opens in its own window, so two can sit side by side. A fast viewer with outline, thumbnails and search. Fit text width (`w`) crops the margins. Dark and sepia pages, a focus mode and a reading ruler. Hovering a citation previews the reference, with **Open paper** or **Search Scholar**. Read aloud uses the voices installed in Windows.
 
 **Annotate.** Highlight, underline and strike out in six colours whose meanings you choose. A pressure-aware pen, sticky notes and area clips. Undo and redo for everything. Annotations are saved into the PDF itself, as standard annotations that other PDF readers show.
 

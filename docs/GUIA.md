@@ -93,6 +93,23 @@ Hay cuatro formas de abrir un PDF:
 
 ![La pantalla de inicio, con la lista de documentos recientes y el árbol de una carpeta de apuntes](images/library.png)
 
+### Varios PDF a la vez
+
+Cada PDF se abre en su propia ventana de Estudio. Así puedes tener dos documentos uno al lado del otro, por ejemplo un artículo y tus apuntes de clase.
+
+- **Desde la lista Recent o desde el árbol de una carpeta de apuntes.** Pulsa el documento con `Ctrl` + clic, o con la rueda del ratón (clic central). Se abre en una ventana nueva y la que tienes delante no cambia. En la lista **Recent**, el botón con una flecha que aparece al pasar el ratón por encima hace lo mismo. En el árbol, el menú **⋯** tiene **Open in new window** (abrir en una ventana nueva).
+- **Desde el panel Files del lector.** Un clic normal cambia el documento de esa ventana por el que pulsas, como siempre. Con `Ctrl` + clic se abre en otra ventana.
+- **Desde el Explorador de archivos.** Si Estudio muestra la pantalla de inicio, el PDF se abre en esa ventana. Si ya estás leyendo otro, el nuevo va a una ventana aparte y el que lees no se cierra. Si abres varios PDF a la vez, cada uno tiene su ventana.
+- **Una ventana vacía.** `Ctrl+N` abre otra ventana de Estudio con la pantalla de inicio.
+
+Windows a veces no deja que Estudio abra una ventana por su cuenta. Entonces aparece abajo el aviso **Open archivo.pdf in a new window?** (¿abrir archivo.pdf en una ventana nueva?). Pulsa **Open** y se abre.
+
+Para poner dos ventanas una al lado de la otra, pulsa en una de ellas `Windows` + flecha izquierda. Windows la pega a la mitad izquierda de la pantalla y te enseña las demás ventanas para que elijas cuál va a la derecha.
+
+Un mismo PDF solo puede estar abierto en una ventana. Si intentas abrirlo otra vez, Estudio intenta traer al frente la ventana que ya lo tiene y te avisa con **Already open in another window** (ya está abierto en otra ventana). Si esa ventana no aparece delante, búscala en la barra de tareas.
+
+Las ventanas se entienden entre ellas. Si cambias el tema, el modo de página o cualquier otro ajuste en una, las demás lo adoptan. Una carpeta de apuntes que añades en una ventana aparece en las demás. Y si empiezas a leer en voz alta en una ventana, la que estaba leyendo se calla.
+
 ### Hacer que los PDF se abran siempre con Estudio
 
 Si quieres que un doble clic en cualquier PDF lo abra en Estudio:
@@ -364,6 +381,8 @@ Las letras en mayúscula (`N`, `W`, `R`…) se escriben con `Mayús`.
 | `f` | Modo concentración |
 | `r` | Regla de lectura |
 | `l` | Leer en voz alta / pausar |
+| `Ctrl` + clic, clic central | Abrir un documento en una ventana nueva |
+| `Ctrl+N` | Abrir otra ventana de Estudio |
 | `Ctrl+K` | Buscador de acciones |
 
 **Anotar**
@@ -402,7 +421,7 @@ Las letras en mayúscula (`N`, `W`, `R`…) se escriben con `Mayús`.
 
 ## Actualizar Estudio
 
-**Si lo instalaste desde la dirección web**, se actualiza solo. Cuando hay una versión nueva, Estudio la descarga y la aplica la próxima vez que vuelves a la pantalla de inicio. Nunca se actualiza con un documento abierto, así que no pierdes nada.
+**Si lo instalaste desde la dirección web**, se actualiza solo. Cuando hay una versión nueva, Estudio la descarga y la aplica cuando ninguna ventana tiene un documento abierto, es decir, cuando la última vuelve a la pantalla de inicio. Nunca se actualiza con un documento abierto, así que no pierdes nada.
 
 **Si lo instalaste desde el código en Windows**, vuelve a ejecutar la orden de instalación:
 
@@ -440,6 +459,15 @@ Estudio reconoce un PDF por su contenido, no por su nombre. Dos copias idéntica
 
 **Un PDF no guarda los subrayados en el archivo.**
 Si el PDF está protegido con contraseña, Estudio no puede escribir en él, y la barra de estado lo dice. Tus subrayados siguen guardados dentro de Estudio. Para tener un PDF con ellos, usa **Annotated PDF** en el menú de descarga.
+
+**Me dice "Already open in another window".**
+Ese PDF ya está abierto en otra ventana de Estudio, y un documento solo puede estar abierto en una. Busca esa ventana en la barra de tareas. Si quieres abrirlo aquí, ciérralo antes en la otra ventana (botón **Library**) y vuelve a intentarlo.
+
+**Aparece "Open archivo.pdf in a new window?".**
+Windows no dejó que Estudio abriera la ventana por su cuenta. Pulsa **Open** para abrirla, o **Dismiss** (descartar) si no la quieres.
+
+**El botón de abrir en una ventana nueva está gris.**
+Ese documento se abrió sin acceso a su archivo (por ejemplo, arrastrado desde algunos programas), así que solo puede abrirse en la ventana actual. Ábrelo una vez con **Open PDF** y a partir de entonces podrá ir a otra ventana.
 
 **Se abrió una ventana y la cerré sin querer.**
 Si era el cuaderno en ventana aparte, vuelve a abrirlo con el botón **Open in its own window**, o pulsa **Bring back** (traer de vuelta) en el panel del cuaderno.
