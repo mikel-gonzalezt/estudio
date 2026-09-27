@@ -3,6 +3,7 @@
   import { vaults } from '../lib/vaults.svelte';
   import { canMove, childrenOf, parentOf, ROOT, type TreeNode, type VaultPath } from '../lib/vaulttree';
   import Icon from './Icon.svelte';
+  import { newWindowClick } from '../lib/keys';
 
   let { compact = false, current }: { compact?: boolean; current?: VaultPath } = $props();
 
@@ -22,6 +23,17 @@
     const { handle, ...place } = await vaults.place(node.path);
     if (node.kind === 'pdf') await app.openFile(await handle.getFile(), handle, { place });
     else app.openNote(handle, place);
+  }
+
+  async function openInNewWindow(path: VaultPath) {
+    menu = null;
+    const { handle } = await vaults.place(path);
+    await app.openInNewWindow(handle);
+  }
+
+  function onItemClick(e: MouseEvent, node: TreeNode) {
+    if (node.kind === 'pdf' && newWindowClick(e)) void openInNewWindow(node.path);
+    else if (e.button === 0) void open(node);
   }
 
   async function newFolder() {
@@ -124,6 +136,9 @@
 
 {#if menu}
   <div class="menu" style:left="{menu.x}px" style:top="{menu.y}px" role="menu">
+    {#if vaults.tree.get(menu.path)?.kind === 'pdf'}
+      <button role="menuitem" onclick={() => openInNewWindow(menu!.path)}>Open in new window <kbd>Ctrl+click</kbd></button>
+    {/if}
     <button role="menuitem" onclick={() => rename(menu!.path)}>Rename <kbd>F2</kbd></button>
     <button role="menuitem" class="danger" onclick={() => remove(menu!.path)}>Delete <kbd>Del</kbd></button>
   </div>
@@ -148,7 +163,8 @@
       aria-expanded={node.kind === 'dir' ? vaults.expanded.has(node.path) : undefined}
       tabindex="-1"
     >
-      <button class="item" onclick={() => open(node)} onkeydown={(e) => onKey(e, node)} data-path={node.path}>
+      <button class="item" onclick={(e) => onItemClick(e, node)} onauxclick={(e) => onItemClick(e, node)}
+        onmousedown={(e) => { if (e.button === 1) e.preventDefault(); }} onkeydown={(e) => onKey(e, node)} data-path={node.path}>
         {#if node.kind === 'dir'}
           <span class="chev" class:open={vaults.expanded.has(node.path)}><Icon name="chevron" size={12} /></span>
           <Icon name="folder" size={15} />

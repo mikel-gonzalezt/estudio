@@ -36,3 +36,8 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   return el.isContentEditable === true || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' ||
     (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'range', 'color'].includes(el.type ?? ''));
 }
+
+/** Ctrl+click or a middle click: the gesture that opens a document in a new window. */
+export function newWindowClick(e: Pick<MouseEvent, 'button' | 'ctrlKey' | 'metaKey'>): boolean {
+  return e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey));
+}

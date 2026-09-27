@@ -7,6 +7,8 @@
   import { pwa } from '../lib/pwa.svelte';
   import { vaults } from '../lib/vaults.svelte';
   import VaultTree from './VaultTree.svelte';
+  import { newWindowClick } from '../lib/keys';
+  import { windows } from '../lib/windows';
 
   let input: HTMLInputElement;
   let locating = $state<DocRecord | null>(null);
@@ -39,6 +41,11 @@
   }
 
   async function remove(doc: DocRecord) {
+    if ((await windows.where(doc.id)).kind === 'elsewhere') {
+      windows.focus(doc.id);
+      app.notify(`"${doc.title}" is open in another window. Close it there first.`);
+      return;
+    }
     if (!confirm(`Remove "${doc.title}" and all its annotations, notes and cards from this device?`)) return;
     await deleteDoc(doc.id);
     await app.refreshDocs();
@@ -137,7 +144,10 @@
     <ul class="grid">
       {#each app.docs as doc (doc.id)}
         <li class="doc">
-          <button class="open" onclick={() => openDoc(doc)}>
+          <button class="open" title="Ctrl+click opens it in a new window"
+            onclick={(e) => (newWindowClick(e) ? app.openDocInNewWindow(doc) : openDoc(doc))}
+            onauxclick={(e) => { if (newWindowClick(e)) void app.openDocInNewWindow(doc); }}
+            onmousedown={(e) => { if (e.button === 1) e.preventDefault(); }}>
             <span class="title">{doc.title}</span>
             <span class="file muted">{doc.fileName}</span>
             <span class="bar" title="{progress(doc)}% of pages seen"><span style:width="{progress(doc)}%"></span></span>
@@ -146,6 +156,9 @@
               <span>{fmtTime(doc.readingMs)} · {ago(doc.openedAt)}</span>
             </span>
           </button>
+          <button class="new-window" disabled={!doc.handle} data-testid="open-new-window"
+            title={doc.handle ? 'Open in new window' : 'Opened without access to its file, so it can only open in this window'}
+            aria-label="Open {doc.title} in a new window" onclick={() => app.openDocInNewWindow(doc)}><Icon name="popout" size={15} /></button>
           <button class="remove" title="Remove from library" onclick={() => remove(doc)}><Icon name="trash" size={16} /></button>
         </li>
       {/each}
@@ -202,12 +215,14 @@
     border-radius: 12px;
   }
   .open:hover:not(:disabled) { background: var(--surface); border-color: var(--accent); }
-  .title { font-weight: 600; font-size: 15px; padding-right: 24px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+  .title { font-weight: 600; font-size: 15px; padding-right: 52px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
   .file { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar { height: 5px; background: var(--surface-3); border-radius: 3px; overflow: hidden; margin-top: 6px; }
   .bar span { display: block; height: 100%; background: var(--accent); }
   .meta { display: flex; justify-content: space-between; font-size: 12px; }
   .remove { position: absolute; top: 10px; right: 8px; color: var(--muted); }
+  .new-window { position: absolute; top: 10px; right: 34px; color: var(--muted); opacity: 0; }
+  .doc:hover .new-window:not(:disabled), .new-window:focus-visible { opacity: 1; }
   .install { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .vaults { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
   .vault-chip { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
