@@ -1,4 +1,5 @@
-import { getNotebookIndex, putNotebookIndex } from './db';
+import { getNotebookIndex, patchNotebookIndex } from './db';
+import { diff, isEmpty, type Patch } from './patch';
 import type { NotebookHome } from './notebookstore';
 import { notebookIdIn } from './frontmatter';
 import type { DocId, NotebookLoc, Vault, VaultFolder, VaultId } from './types';
@@ -46,14 +47,17 @@ export class NotebookIndex implements NotebookTracker {
   readonly #shallow = new Set<VaultId>();
   #pending: Promise<unknown> = Promise.resolve();
   #persistTimer: ReturnType<typeof setTimeout> | undefined;
-  readonly #persist: (entries: Record<DocId, NotebookLoc>) => Promise<void>;
+  /** What this window believes is stored, so it writes only its own changes and keeps other windows'. */
+  #persisted: Record<DocId, NotebookLoc> = {};
+  readonly #persist: (changes: Patch<Record<DocId, NotebookLoc>>) => Promise<void>;
 
-  constructor(persist: (entries: Record<DocId, NotebookLoc>) => Promise<void> = async () => {}) {
+  constructor(persist: (changes: Patch<Record<DocId, NotebookLoc>>) => Promise<void> = async () => {}) {
     this.#persist = persist;
   }
 
   restore(entries: Record<DocId, NotebookLoc>) {
     for (const [id, loc] of Object.entries(entries) as [DocId, NotebookLoc][]) this.#remembered.set(id, loc);
+    this.#persisted = { ...this.#persisted, ...entries };
   }
 
   /** A granted PDF folder: never walked whole. */
@@ -219,11 +223,16 @@ export class NotebookIndex implements NotebookTracker {
 
   #changed() {
     clearTimeout(this.#persistTimer);
-    this.#persistTimer = setTimeout(() => void this.#persist(this.entries()), 300);
+    this.#persistTimer = setTimeout(() => {
+      const now = this.entries();
+      const changes = diff(this.#persisted, now);
+      this.#persisted = now;
+      if (!isEmpty(changes)) void this.#persist(changes);
+    }, 300);
   }
 }
 
-export const notebookIndex = new NotebookIndex(putNotebookIndex);
+export const notebookIndex = new NotebookIndex(patchNotebookIndex);
 
 export async function restoreNotebookIndex() {
   notebookIndex.restore(await getNotebookIndex());

@@ -17,7 +17,9 @@ if (import.meta.env.PROD) {
   const updateSW = registerSW({
     immediate: true,
     // Reloading while a document is open would drop the reader back to the library, so the
-    // update waits; App applies it once the library is showing and pending saves are done.
+    // update waits; App applies it once no window shows a document and pending saves are done.
     onNeedRefresh: () => pwa.offerUpdate(() => updateSW(true)),
+    // Another window applied the update. A pop-out reloads at once; the app waits for the library.
+    onNeedReload: () => (popout ? location.reload() : pwa.needReload()),
   });
 }

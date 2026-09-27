@@ -3,6 +3,8 @@ import { app, type PdfRequest } from '../lib/app.svelte';
 import { annotationsFor, getDoc, putDoc, writeAnnotations } from '../lib/db';
 import { syncPdf } from '../lib/pdfworker';
 import { vaults } from '../lib/vaults.svelte';
+import { ALREADY_OPEN, windows } from '../lib/windows';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { AnnId, DocId, DocRecord, FileAnnotation, StoredAnnotation } from '../lib/types';
 import { FileSync, type SaveState, type SyncHost } from './filesync.svelte';
 import { loadPdf, pageInfo } from './pdf';
@@ -21,7 +23,15 @@ function syncHost(r: Reader): SyncHost {
   };
 }
 
-export interface Opened { reader: Reader; isNew: boolean }
+/** `release` gives the document up to other windows; call it once everything is saved. */
+export interface Opened { reader: Reader; isNew: boolean; release: () => void }
+
+/** The document is open in another window, which keeps it. */
+export class OpenElsewhere extends Error {
+  constructor(readonly doc: DocId) {
+    super(ALREADY_OPEN);
+  }
+}
 
 /**
  * Loads a PDF and its study data. With a file handle, the annotations stored inside the PDF are
@@ -32,6 +42,21 @@ export async function openDocument(request: PdfRequest): Promise<Opened> {
   const bytes = await file.arrayBuffer();
   const pdf = await loadPdf(handle ? bytes.slice(0) : bytes);
   const id = (pdf.fingerprints[0] ?? `${file.name}:${file.size}`) as DocId;
+  const release = await windows.hold(id);
+  if (!release) {
+    await pdf.loadingTask.destroy();
+    throw new OpenElsewhere(id);
+  }
+  try {
+    return { ...(await load(request, pdf, id, bytes)), release };
+  } catch (e) {
+    release();
+    throw e;
+  }
+}
+
+async function load(request: PdfRequest, pdf: PDFDocumentProxy, id: DocId, bytes: ArrayBuffer): Promise<Omit<Opened, 'release'>> {
+  const { file, handle } = request;
   const [info, meta, existing, stored] = await Promise.all([
     Promise.all(Array.from({ length: pdf.numPages }, (_, i) => pdf.getPage(i + 1).then(pageInfo))),
     pdf.getMetadata().catch(() => null),
@@ -72,6 +97,7 @@ export async function openDocument(request: PdfRequest): Promise<Opened> {
     }
   }
   await putDoc(doc);
+  windows.post({ t: 'docs' });
   const pdfAt = request.place ?? (handle && (await vaults.folderOf(handle)));
   const reader = new Reader(pdf, info, doc, annotations, request, await findNotebook(id, file.name, pdfAt));
   if (handle) {

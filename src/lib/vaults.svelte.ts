@@ -2,6 +2,7 @@ import { deleteVault, listVaults, putVault } from './db';
 import { askPermission, hasPermission } from './fsaccess';
 import { notebookIndex, restoreNotebookIndex } from './notebookindex';
 import type { NotebookLoc, Vault, VaultId } from './types';
+import { windows } from './windows';
 import { dirAt, fileAt, moveEntry, pathIn, placeIn, removeEntry, walk, writeFile } from './vault';
 import {
   EMPTY_TREE, ROOT, buildTree, canMove, checkName, companionsOf, joinPath, nameOf, parentOf, resolvePdfLink, stemOf, uniqueName,
@@ -50,6 +51,35 @@ class Vaults {
     if (last && !locked.has(last.id)) await this.#activate(last);
   }
 
+  /**
+   * Adopts what another window changed: the vault list, grants and access, and with `changed`,
+   * files inside that vault. The open vault stays open unless it was forgotten.
+   */
+  async reload(changed?: VaultId) {
+    const [all] = await Promise.all([listVaults(), restoreNotebookIndex()]);
+    const known = new Set([...this.list, ...this.grants].map((v) => v.id));
+    const ids = new Set(all.map((v) => v.id));
+    for (const id of known) if (!ids.has(id)) notebookIndex.forget(id);
+    const locked = new Set<VaultId>();
+    for (const v of all) if (!(await hasPermission(v.handle, 'readwrite'))) locked.add(v.id);
+    for (const v of all) {
+      if (locked.has(v.id)) continue;
+      if (v.pdfFolder) notebookIndex.attach(v);
+      else if (!known.has(v.id) || this.locked.has(v.id) || v.id === changed) void notebookIndex.scan(v);
+    }
+    const order = new Map(this.list.map((v, i) => [v.id, i]));
+    this.list = all.filter((v) => !v.pdfFolder).sort((a, b) => (order.get(a.id) ?? -1) - (order.get(b.id) ?? -1));
+    this.grants = all.filter((v) => v.pdfFolder);
+    this.locked = locked;
+    const cur = this.current;
+    if (cur && !ids.has(cur.id)) this.close();
+    else if (cur && (changed === cur.id || !this.tree.size)) await this.refresh();
+  }
+
+  #announce(vault?: VaultId) {
+    windows.post({ t: 'vaults', ...(vault ? { vault } : {}) });
+  }
+
   /** Picks a folder and opens it as a vault. A folder that is already a vault is reused. */
   async add() {
     const w = window as DirPickerWindow;
@@ -71,6 +101,7 @@ class Vaults {
     this.list = [v, ...this.list];
     void notebookIndex.scan(v);
     await this.#activate(v);
+    this.#announce();
   }
 
   /** Opens a vault, asking for access again if the grant lapsed; call from a click. */
@@ -91,6 +122,7 @@ class Vaults {
       this.locked = locked;
       if (v.pdfFolder) notebookIndex.attach(v);
       else await notebookIndex.scan(v);
+      this.#announce();
     }
     return true;
   }
@@ -134,6 +166,7 @@ class Vaults {
     await putVault(g);
     this.grants = [...this.grants, g];
     notebookIndex.attach(g);
+    this.#announce();
     return { vault: g.id, path };
   }
 
@@ -163,6 +196,7 @@ class Vaults {
     notebookIndex.forget(v.id);
     this.list = this.list.filter((x) => x.id !== v.id);
     if (this.current?.id === v.id) this.close();
+    this.#announce();
   }
 
   async refresh() {
@@ -217,6 +251,7 @@ class Vaults {
 
   async #run<T>(what: string, f: () => Promise<T>): Promise<T | undefined> {
     this.error = '';
+    const vault = this.current?.id;
     try {
       return await f();
     } catch (e) {
@@ -224,6 +259,7 @@ class Vaults {
       return undefined;
     } finally {
       await this.refresh();
+      this.#announce(vault);
     }
   }
 

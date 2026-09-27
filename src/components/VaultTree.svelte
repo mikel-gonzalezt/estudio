@@ -20,7 +20,7 @@
     }
     vaults.folder = parentOf(node.path);
     const { handle, ...place } = await vaults.place(node.path);
-    if (node.kind === 'pdf') await app.openFile(await handle.getFile(), handle, place);
+    if (node.kind === 'pdf') await app.openFile(await handle.getFile(), handle, { place });
     else app.openNote(handle, place);
   }
 

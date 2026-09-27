@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { getDoc, getSettings, putSettings } from '../../lib/db';
+  import { getDoc, getSettings, patchSettings } from '../../lib/db';
+  import { windows } from '../../lib/windows';
   import { askPermission } from '../../lib/fsaccess';
   import { linkedPdfName, resolveHome, type NotebookHome, type Resolved } from '../../lib/notebookstore';
   import type { NotebookContext } from '../../lib/notebooksync';
@@ -22,7 +23,8 @@
 
   async function setEditorMode(m: EditorMode) {
     editorMode = m;
-    await putSettings({ ...(await getSettings()), editorMode: m });
+    await patchSettings({ editorMode: m });
+    windows.post({ t: 'settings', put: { editorMode: m } });
   }
 
   const host: NotebookHost = {
@@ -35,7 +37,8 @@
   async function setAutoLinks(on: boolean) {
     autoLinks = on;
     channel.post({ t: 'autoLinks', on });
-    await putSettings({ ...(await getSettings()), autoPageLinks: on });
+    await patchSettings({ autoPageLinks: on });
+    windows.post({ t: 'settings', put: { autoPageLinks: on } });
   }
 
   /** Opens the notebook where the reader keeps it, as its route names it. */

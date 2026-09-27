@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { NotebookIndex, notebooksIn, remapPath } from './notebookindex';
 import type { DocId, VaultId } from './types';
 import { freePath, placeIn } from './vault';
@@ -90,6 +90,22 @@ describe('NotebookIndex', () => {
     expect(index.get(doc('d1'))).toEqual({ vault: B, path: 'n.md' });
     expect(index.get(doc('d2'))).toBeUndefined();
     expect(index.entries()).toEqual({ d1: { vault: B, path: 'n.md' } });
+  });
+
+  it('persists only its own changes, so entries another window wrote survive', async () => {
+    vi.useFakeTimers();
+    try {
+      const persist = vi.fn(async () => {});
+      const index = new NotebookIndex(persist);
+      index.restore({ [doc('d1')]: { vault: B, path: 'n.md' }, [doc('d2')]: { vault: B, path: 'm.md' } });
+      index.saved(doc('d3'), { vault: B, path: 'o.md' });
+      index.saved(doc('d2'), { vault: B, path: 'moved.md' });
+      await vi.advanceTimersByTimeAsync(400);
+      expect(persist).toHaveBeenCalledTimes(1);
+      expect(persist).toHaveBeenCalledWith({ put: { d3: { vault: B, path: 'o.md' }, d2: { vault: B, path: 'moved.md' } }, del: [] });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   describe('locate', () => {

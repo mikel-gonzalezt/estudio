@@ -10,6 +10,8 @@ class Pwa {
   standalone = $state(false);
   /** A new version is downloaded and waits for a moment when reloading loses nothing. */
   updateReady = $state(false);
+  /** Another window applied an update while this one showed a document; reload once the library shows. */
+  reloadPending = $state(false);
   #apply: (() => Promise<void>) | null = null;
 
   listen() {
@@ -33,6 +35,10 @@ class Pwa {
   offerUpdate(apply: () => Promise<void>) {
     this.#apply = apply;
     this.updateReady = true;
+  }
+
+  needReload() {
+    this.reloadPending = true;
   }
 
   applyUpdate(): Promise<void> {

@@ -5,7 +5,8 @@
   import { buildKeymap, commandForEvent } from '../lib/registry';
   import { vaults } from '../lib/vaults.svelte';
   import VaultTree from '../components/VaultTree.svelte';
-  import { openDocument } from './open';
+  import { openDocument, OpenElsewhere } from './open';
+  import { ALREADY_OPEN, windows } from '../lib/windows';
   import { readerCommands } from './commands';
   import Outline from './Outline.svelte';
   import AnnotationsPanel from './AnnotationsPanel.svelte';
@@ -39,26 +40,55 @@
   const commands = $derived(reader ? readerCommands(reader, { openPalette: () => (paletteOpen = true) }) : []);
   const keymap = $derived(buildKeymap(commands));
 
+  let destroyed = false;
+  let release: (() => void) | null = null;
+
   onMount(async () => {
     try {
       const opened = await openDocument(request);
+      if (destroyed) {
+        void opened.reader.pdf.loadingTask.destroy().finally(opened.release);
+        return;
+      }
       reader = opened.reader;
+      release = opened.release;
       document.title = `${reader.doc.title} · Estudio`;
       if (opened.isNew) {
         await tick();
         reader.fitWidth();
       }
     } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
+      if (e instanceof OpenElsewhere) elsewhere(e.doc);
+      else error = e instanceof Error ? e.message : String(e);
     }
   });
 
+  /** The window that sent this document here hears why it did not open, and a window opened just for it closes. */
+  function elsewhere(doc: OpenElsewhere['doc']) {
+    windows.focus(doc);
+    if (request.from) {
+      windows.post({ t: 'notice', to: request.from, text: ALREADY_OPEN });
+      window.close();
+    }
+    app.close();
+    app.notify(ALREADY_OPEN);
+  }
+
   onDestroy(() => {
+    destroyed = true;
     document.title = 'Estudio';
     readAloud.close();
     if (reader) {
       const r = reader;
-      void app.track(Promise.all([r.save(), r.study.dispose(), r.sync?.save()]).finally(() => r.pdf.loadingTask.destroy()));
+      const done = release;
+      void app.track(
+        Promise.all([r.save(), r.study.dispose(), r.sync?.save()])
+          .finally(() => r.pdf.loadingTask.destroy())
+          .finally(() => {
+            done?.();
+            windows.post({ t: 'docs' });
+          }),
+      );
     }
   });
 
