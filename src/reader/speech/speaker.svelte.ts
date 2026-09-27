@@ -18,8 +18,11 @@ export type Start = { kind: 'range'; range: Range } | { kind: 'page' } | { kind:
 
 export const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2] as const;
 
-/** The settings read aloud keeps, and how to persist them; handed in so this lazy chunk shares no module with the app shell. */
-export interface Prefs { settings: Pick<Settings, 'speechRate' | 'speechVoices'>; save: () => void }
+/**
+ * The settings read aloud keeps, how to persist them, and whom to tell when speech starts (other
+ * windows fall silent); handed in so this lazy chunk shares no module with the app shell.
+ */
+export interface Prefs { settings: Pick<Settings, 'speechRate' | 'speechVoices'>; save: () => void; playing: () => void }
 
 /** Neighbours whose first and last lines reveal running headers and footers (odd and even pages differ). */
 const FURNITURE_NEIGHBOURS = [-2, -1, 1, 2];
@@ -157,6 +160,7 @@ export class Speaker {
       return;
     }
     this.phase = { kind: 'playing', at: cursor };
+    this.#prefs.playing();
     this.#speak();
   }
 
@@ -286,6 +290,7 @@ export class Speaker {
     if (p.kind !== 'paused') return;
     this.message = '';
     this.phase = { kind: 'playing', at: p.at };
+    this.#prefs.playing();
     this.#speak();
   }
 

@@ -1,5 +1,6 @@
 import type { Component } from 'svelte';
 import { app } from '../../lib/app.svelte';
+import { windows } from '../../lib/windows';
 import type { Command } from '../../lib/registry';
 import type { Reader } from '../session.svelte';
 import { TOOLS } from '../tools';
@@ -29,7 +30,8 @@ class ReadAloud {
     if (this.loaded?.speaker.reader === reader) return Promise.resolve(this.loaded);
     const gen = this.#generation;
     this.#loading ??= import('./index').then((m) => {
-      const l = { speaker: new m.Speaker(reader, { settings: app.settings, save: () => app.saveSettings() }), Bar: m.SpeechBar };
+      const prefs = { settings: app.settings, save: () => app.saveSettings(), playing: () => windows.post({ t: 'speaking' }) };
+      const l = { speaker: new m.Speaker(reader, prefs), Bar: m.SpeechBar };
       if (gen === this.#generation) this.loaded = l;
       else l.speaker.dispose();
       return l;
@@ -68,6 +70,10 @@ class ReadAloud {
 }
 
 export const readAloud = new ReadAloud();
+
+windows.on((m) => {
+  if (m.t === 'speaking') readAloud.stop();
+});
 
 function setEnabled(on: boolean) {
   app.settings.readAloud = on;
