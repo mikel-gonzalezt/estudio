@@ -215,3 +215,11 @@ describe('parseNotes', () => {
     expect(JSON.stringify(p)).toContain('"type":"pageLink","page":3');
   });
 });
+
+describe('empty lines', () => {
+  it('writes an &nbsp; line as its own blank paragraph, not as the entity', async () => {
+    const xml = await body('one\n\n&nbsp;\n\ntwo\n');
+    expect(text(xml)).not.toContain('&amp;nbsp;');
+    expect(paragraphs(xml).map((p) => text(p).trim())).toEqual(['one', '', 'two']);
+  });
+});

@@ -14,7 +14,7 @@ Optional YAML block at the top. Estudio owns `estudio-doc` and `pdf`; every othe
 | Bold, italic, strike | `**b**`, `*i*`, `~~s~~` | Writers emit these forms. Readers also accept `__b__` and `_i_`. |
 | Highlight | `==text==` | Obsidian form. |
 | Inline code, code block | `` `c` ``, fenced ```` ``` ```` | |
-| Lists | `- item`, `1. item` | Nested by 4 spaces. |
+| Lists | `- item`, `1. item` | Nested by 4 spaces under both `- ` and `1. `. Readers follow CommonMark, so 2 or 3 spaces under `1. ` read the same. |
 | Tasks | `- [ ] todo`, `- [x] done` | GFM. |
 | Quote | `> text` | |
 | Table | GFM pipe table with header and `---` row | Cells hold inline content only. Alignment colons are kept. |
@@ -24,6 +24,24 @@ Optional YAML block at the top. Estudio owns `estudio-doc` and `pdf`; every othe
 | Image | `![alt](path)` | See below. `![alt](path "title")` allowed. |
 | Obsidian embed | `![[name.png]]` | Read and rendered; not written by Estudio. |
 | Horizontal rule | `---` | |
+| Empty line | `&nbsp;` alone as a paragraph | See below. |
+
+## Empty lines
+
+Markdown collapses blank lines, so a blank line between blocks is only a separator. An empty line the user wants to keep is a paragraph holding just `&nbsp;`:
+
+```md
+First line
+
+&nbsp;
+
+Second line
+```
+
+- Document mode writes each empty paragraph between blocks this way and reads each such paragraph back as an empty one. Empty paragraphs at the end of the note are not written.
+- The preview, print and Word show it as an empty paragraph, and so does Obsidian. Markdown mode shows the source.
+- Extra blank lines typed in Markdown mode stay in the file, byte for byte, but read as one separator everywhere, as in Obsidian and any other Markdown reader. Keeping them visible only in Estudio would make the preview disagree with the file's meaning, so the entity is the one way to ask for an empty line.
+- Raw HTML such as `<br>` is shown as text in notes, so it cannot stand for an empty line.
 
 ## Images
 

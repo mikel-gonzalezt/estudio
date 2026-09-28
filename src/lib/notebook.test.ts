@@ -83,3 +83,13 @@ describe('preview: hostile links', () => {
     expect(html).toContain('<a href="https://example.org/" target="_blank" rel="noopener noreferrer">https://example.org</a>');
   });
 });
+
+describe('empty lines in the preview', () => {
+  it('shows an &nbsp; line as an empty paragraph', () => {
+    expect(renderMarkdown('one\n\n&nbsp;\n\ntwo\n')).toBe('<p>one</p>\n<p>&nbsp;</p>\n<p>two</p>\n');
+  });
+
+  it('collapses plain blank lines, as CommonMark and Obsidian do', () => {
+    expect(renderMarkdown('one\n\n\n\ntwo\n')).toBe('<p>one</p>\n<p>two</p>\n');
+  });
+});

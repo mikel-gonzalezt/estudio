@@ -5,6 +5,9 @@ import { Marked } from 'marked';
 import { splitFrontmatter } from '../../../lib/frontmatter';
 import { escapeText } from '../../../lib/mdescape';
 
+/** How an empty paragraph is written: Markdown drops blank lines, and Obsidian and marked show this as one. */
+const EMPTY_LINE = '&nbsp;';
+
 /** A run of the source and the top-level nodes it parsed into. */
 interface Block { src: string; nodes: PMNode[] }
 
@@ -77,9 +80,9 @@ export class DocMarkdown {
         continue;
       }
       const node = kids[i++]!;
-      if (isBlank(node)) continue;
+      if (isBlank(node) && kids.slice(i).every(isBlank)) break;
       sep();
-      out += this.#fresh(node);
+      out += isBlank(node) ? EMPTY_LINE : this.#fresh(node);
       fresh = true;
     }
     if (fresh) out += '\n';
@@ -96,9 +99,13 @@ export class DocMarkdown {
     return this.#md.serialize({ type: 'doc', content: [node.toJSON() as JSONContent] }).replace(/^[ \t]+$/gm, '').replace(/\s+$/, '');
   }
 
+  /**
+   * TipTap reads each extra blank line as an empty paragraph; here, as in the preview, only an
+   * explicit `&nbsp;` line is one, so the blank lines after a block are left out.
+   */
   #nodes(src: string): PMNode[] {
-    const json = this.#md.parse(src);
-    return (json.content ?? []).filter((n: JSONContent) => !(n.type === 'paragraph' && !n.content?.length)).map((n: JSONContent) => this.schema.nodeFromJSON(trimLineStarts(n)));
+    const json = this.#md.parse(src.replace(/(?:\n[ \t]*)+$/, '\n'));
+    return (json.content ?? []).map((n: JSONContent) => this.schema.nodeFromJSON(trimLineStarts(n)));
   }
 
   /** Top-level runs of source, each a block and the blank lines after it; `lead` is blank lines before the first. */
