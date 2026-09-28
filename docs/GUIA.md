@@ -231,6 +231,9 @@ En el modo Documento, la barra de botones del cuaderno sirve para:
 
 Si prefieres el teclado, al principio de una línea `# ` crea un título, `- ` una lista y `1. ` una lista numerada.
 
+- **Listas dentro de listas.** En un elemento de una lista, `Tab` lo mete un nivel más adentro y `Mayús+Tab` lo saca. Así se pone, por ejemplo, una lista con viñetas dentro del punto 1 de una lista numerada.
+- **Líneas vacías.** Pulsar `Intro` dos veces deja una línea vacía entre dos párrafos, y esa línea se conserva al pasar a **Read**, en el modo Markdown, en la ventana aparte y al exportar. En el archivo aparece como `&nbsp;` en una línea sola, que Obsidian también muestra como una línea vacía. En el modo Markdown, varias líneas en blanco seguidas cuentan como una sola separación, igual que en Obsidian; para dejar una línea vacía visible, escribe `&nbsp;` en una línea aparte.
+
 ### Enlaces a páginas
 
 Lo más útil del cuaderno son los enlaces a páginas. Son unas etiquetas pequeñas, como **p. 12**, que al pulsarlas llevan el PDF a esa página.
@@ -283,6 +286,17 @@ Para pasar un cuaderno de dentro de Estudio a un archivo, pulsa **Save as file**
 - **In a vault folder…** (en una carpeta de apuntes). Guarda el cuaderno en la carpeta de apuntes que elijas.
 
 **Las tarjetas, tu progreso de lectura y tus ajustes se guardan dentro de Estudio**, en la memoria del navegador. No están en ningún archivo tuyo. Por eso es buena idea hacer de vez en cuando una copia completa (mira [Exportar y copias de seguridad](#exportar-y-copias-de-seguridad)).
+
+### Mover un cuaderno
+
+El botón **⋯** del cuaderno muestra dónde está guardado y permite moverlo, esté donde esté (dentro de Estudio, junto al PDF o en una carpeta de apuntes):
+
+- **Next to the PDF** (junto al PDF) lo lleva a la carpeta del PDF.
+- **Move notebook to a vault…** (mover el cuaderno a una carpeta de apuntes) lo lleva a la carpeta de apuntes que elijas, aunque sea otra distinta. Escribe el nombre de una subcarpeta, o deja el campo vacío para la carpeta principal, y pulsa **Move here** (mover aquí).
+
+El cuaderno se lleva sus imágenes a una carpeta `attachments` a su lado; una imagen que también usa otra nota de la carpeta antigua se queda además donde estaba. El archivo antiguo se borra solo cuando el nuevo está completo, y si algo falla, el cuaderno sigue donde estaba. Nunca se sobrescribe otro archivo: si ya hay uno con ese nombre, el cuaderno se guarda como `tema4 (2).md`. El PDF lo encuentra igual en su nueva carpeta. Si el cuaderno está abierto en una ventana aparte, esa ventana sigue al cuaderno. Mientras el cuaderno está en la ventana aparte, el menú se abre con el botón **Location…** (ubicación) del panel del cuaderno.
+
+En el mismo menú, **New notebooks go in** (los cuadernos nuevos van en) elige dónde se crean los cuadernos nuevos: junto al PDF o en una carpeta de apuntes. Solo afecta a los cuadernos que se creen a partir de ese momento. Al cambiarlo con un cuaderno abierto, Estudio pregunta si también debe mover ese cuaderno: **Move it** (moverlo) o **No**.
 
 ## Carpetas tipo Obsidian (vaults)
 

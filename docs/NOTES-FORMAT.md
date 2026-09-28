@@ -46,7 +46,8 @@ Second line
 ## Images
 
 - In a vault, a pasted or dropped image is saved as a file in an `attachments` folder next to the note, named `Pasted image YYYYMMDDHHmmss.png` (Obsidian's pattern, unique-ified). The note references it with a relative path, spaces encoded as `%20`: `![](attachments/Pasted%20image%2020260926143012.png)`.
-- A notebook stored inside Estudio (IndexedDB) keeps image bytes in the `attachments` store and references them as `![](estudio-attachment:<id>)`. "Move notebook to a vault" writes those out as files and rewrites the references.
+- A notebook stored inside Estudio (IndexedDB) keeps image bytes in the `attachments` store and references them as `![](estudio-attachment:<id>)`.
+- Moving a notebook (from IndexedDB or from another folder or vault) copies every image it references into `attachments/` beside the new file and rewrites the references in the forms above. An `![[name.png]]` embed keeps its name, unless the copy had to be renamed; then it names the copy's vault path.
 - A figure clipped from the PDF is inserted as an image followed by its page link on the same line: `![Figure](attachments/…png) [[p4]]`.
 
 All consumers resolve images through one function, exported from `src/lib/attachments.ts` (a note's `NoteFiles.resolve`):
