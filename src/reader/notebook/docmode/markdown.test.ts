@@ -186,7 +186,7 @@ describe('nested lists', () => {
     threeLevels: '1. one\n    - a\n        1. deep\n        2. deeper\n    - b\n2. two\n',
     tasksNested: '- [ ] t\n    - [x] u\n    - [ ] v\n- [ ] w\n',
     tasksInOrdered: '1. one\n    - [ ] a\n    - [x] b\n2. two\n',
-    multiParagraph: '1. first\n\n    more of first\n\n2. second\n',
+    multiParagraph: '1. first\n\n    more of first\n2. second\n    - x\n\n        more of x\n',
   };
 
   it.each(Object.entries(NESTED))('%s: TipTap and marked build the same lists', (_k, text) => {

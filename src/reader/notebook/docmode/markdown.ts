@@ -79,7 +79,7 @@ export class DocMarkdown {
       const node = kids[i++]!;
       if (isBlank(node)) continue;
       sep();
-      out += this.#md.serialize({ type: 'doc', content: [node.toJSON() as JSONContent] }).replace(/\s+$/, '');
+      out += this.#fresh(node);
       fresh = true;
     }
     if (fresh) out += '\n';
@@ -91,9 +91,14 @@ export class DocMarkdown {
     return this.#nodes(markdown);
   }
 
+  /** A block as the serialiser writes it, without the indent TipTap leaves on blank lines inside lists. */
+  #fresh(node: PMNode): string {
+    return this.#md.serialize({ type: 'doc', content: [node.toJSON() as JSONContent] }).replace(/^[ \t]+$/gm, '').replace(/\s+$/, '');
+  }
+
   #nodes(src: string): PMNode[] {
     const json = this.#md.parse(src);
-    return (json.content ?? []).filter((n: JSONContent) => !(n.type === 'paragraph' && !n.content?.length)).map((n: JSONContent) => this.schema.nodeFromJSON(n));
+    return (json.content ?? []).filter((n: JSONContent) => !(n.type === 'paragraph' && !n.content?.length)).map((n: JSONContent) => this.schema.nodeFromJSON(trimLineStarts(n)));
   }
 
   /** Top-level runs of source, each a block and the blank lines after it; `lead` is blank lines before the first. */
@@ -114,6 +119,24 @@ export class DocMarkdown {
 }
 
 const isBlank = (n: PMNode) => n.type.name === 'paragraph' && n.childCount === 0;
+
+/**
+ * CommonMark drops the spaces a paragraph line starts with. marked keeps the ones left over after a
+ * list item's indent (four spaces under `1. ` leave one), and each round trip would add another.
+ */
+function trimLineStarts(n: JSONContent): JSONContent {
+  if (!n.content) return n;
+  if (n.type !== 'paragraph') return { ...n, content: n.content.map(trimLineStarts) };
+  let lineStart = true;
+  const content = n.content.flatMap((c) => {
+    const trim = lineStart && c.type === 'text';
+    lineStart = c.type === 'hardBreak';
+    if (!trim) return [c];
+    const text = c.text!.replace(/^[ \t]+/, '');
+    return text ? [{ ...c, text }] : [];
+  });
+  return { ...n, content };
+}
 
 /** Index of the first block at or after `j` whose nodes are the ones at `kids[i..]`, or -1. */
 function findBlock(blocks: readonly Block[], j: number, kids: readonly PMNode[], i: number): number {

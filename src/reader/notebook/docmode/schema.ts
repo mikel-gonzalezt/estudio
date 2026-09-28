@@ -2,7 +2,7 @@ import { InputRule, mergeAttributes, Node, type AnyExtension, type JSONContent }
 import HardBreak from '@tiptap/extension-hard-break';
 import Highlight from '@tiptap/extension-highlight';
 import Image from '@tiptap/extension-image';
-import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { OrderedList, TaskItem, TaskList } from '@tiptap/extension-list';
 import { Table, TableCell, TableHeader, TableKit } from '@tiptap/extension-table';
 import StarterKit from '@tiptap/starter-kit';
 import type { NoteFiles } from '../../../lib/attachments';
@@ -247,6 +247,13 @@ const NoteTable = Table.extend({
 /** A line break inside a paragraph is a plain newline, as the preview reads it. */
 const LineBreak = HardBreak.extend({ renderMarkdown: () => '\n' });
 
+/**
+ * TipTap's own ordered-list tokenizer strips the indent of only the first nested line, so bullets
+ * under `1. ` came out nested under each other. marked's list tokenizer, which the preview uses,
+ * reads nesting as CommonMark does.
+ */
+const NoteOrderedList = OrderedList.extend({ markdownTokenizer: null as never });
+
 /** Every node and mark Document mode knows, in the notes format of docs/NOTES-FORMAT.md. */
 export function docExtensions(views: DocViews | null = null): AnyExtension[] {
   return [
@@ -262,7 +269,9 @@ export function docExtensions(views: DocViews | null = null): AnyExtension[] {
       heading: { levels: [1, 2, 3, 4, 5, 6] },
       trailingNode: false,
       hardBreak: false,
+      orderedList: false,
     }),
+    NoteOrderedList,
     Highlight,
     LineBreak,
     TaskList,
