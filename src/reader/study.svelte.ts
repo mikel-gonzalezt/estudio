@@ -1,13 +1,14 @@
 import { cardsFor, countDue, deleteCard, getAttachment, putCard } from '../lib/db';
 import { newSrs } from '../lib/fsrs';
-import { attachmentId, figureMarkdown, imageRefs, refFrom, rewriteAttachmentRefs, writeAttachment } from '../lib/attachments';
+import { ATTACHMENTS_DIR, attachmentId, figureMarkdown, findImage, imageRefs, imageSource } from '../lib/attachments';
+import { notebookFrontmatter, splitFrontmatter } from '../lib/frontmatter';
 import { appendBlock, quoteBlock } from '../lib/notebook';
 import { app } from '../lib/app.svelte';
 import { notebookIndex } from '../lib/notebookindex';
+import { leftBehind, planMove, type ImageOrigin, type MovePlan } from '../lib/notebookmove';
 import { idbNotebook, linkedPdfName, notebookFiles, vaultNotebook, type NotebookHome, type NotebookStore, type VaultHome } from '../lib/notebookstore';
 import { popoutHash } from '../lib/notebooksync';
-import { namePageLinks } from '../lib/pagelink';
-import { freePath, removeEntry } from '../lib/vault';
+import { fileAt, fileOrNull, filesIn, removeEntry, writeFile } from '../lib/vault';
 import { vaults } from '../lib/vaults.svelte';
 import { joinPath, parentOf, stemOf, type VaultPath } from '../lib/vaulttree';
 import { NotebookChannel, NotebookDoc } from './notebook/doc.svelte';
@@ -20,6 +21,39 @@ export interface CardDraft { page: number; text: string; annId?: AnnId; cloze: b
 
 /** Saves nothing: the notebook's vault cannot be read until access is granted again. */
 const UNREACHABLE: NotebookStore = { load: async () => '', save: async () => {} };
+
+type Source = { root: FileSystemDirectoryHandle; path: VaultPath; shallow: boolean };
+
+/** Where each local image `body` references is kept: the database, or a file of the vault the note is in now. */
+async function imageOrigins(body: string, source: Source | null): Promise<Map<string, ImageOrigin>> {
+  const out = new Map<string, ImageOrigin>();
+  for (const { src } of imageRefs(body)) {
+    if (out.has(src) || imageSource(src).kind !== 'local') continue;
+    const id = attachmentId(src);
+    if (id) {
+      const att = await getAttachment(id);
+      if (att) out.set(src, { kind: 'db', id, name: att.name });
+    } else if (source) {
+      const path = await findImage(source.root, source.path, src, source.shallow);
+      if (path) out.set(src, { kind: 'file', path });
+    }
+  }
+  return out;
+}
+
+/** Deletes a moved notebook's old file, then the images it took along that no other note beside it mentions. */
+async function removeOld(source: Source, copies: MovePlan['copies']): Promise<string | undefined> {
+  try {
+    await removeEntry(source.root, source.path);
+  } catch (e) {
+    return `The notebook was copied, but its old file "${source.path}" could not be deleted (${e instanceof Error ? e.message : String(e)}). Delete it by hand.`;
+  }
+  const images = copies.flatMap((c) => (c.origin.kind === 'file' ? [c.origin.path] : []));
+  const notes = (await filesIn(source.root, parentOf(source.path))).filter((f) => /\.md$/i.test(f.path));
+  const others = await Promise.all(notes.map(async (f) => ({ text: await (await f.handle.getFile()).text() })));
+  await Promise.all(leftBehind(source.path, images, others).map((p) => removeEntry(source.root, p).catch(() => undefined)));
+  return undefined;
+}
 
 const filesFor = (home: NotebookHome) => notebookFiles(home, (id) => notebookIndex.root(id), notebookIndex, (id) => notebookIndex.isShallow(id));
 
@@ -128,57 +162,102 @@ export class Study {
     return true;
   }
 
-  /** Moves a database notebook into `folder` of a vault as `<pdf name>.md` (see `#moveInto`). */
-  async moveToVault(folder: VaultFolder, pdfName: string): Promise<void> {
-    await this.#moveInto(folder.vault, joinPath(folder.dir, `${stemOf(pdfName)}.md`), pdfName);
+  /** Where the notebook's file is now, after moves made in Estudio; null for a notebook kept in the database. */
+  location(): NotebookLoc | null {
+    return this.home.kind === 'vault' ? notebookIndex.where(this.docId) ?? { vault: this.home.vault, path: this.home.path } : null;
+  }
+
+  /** Moves the notebook, wherever it is kept now, into `folder` of a vault as `<pdf name>.md` (see `#moveTo`). */
+  moveToVault(folder: VaultFolder, pdfName: string): Promise<string | undefined> {
+    return this.#moveTo(folder.vault, joinPath(folder.dir, `${stemOf(pdfName)}.md`), pdfName);
   }
 
   /**
-   * Moves a database notebook next to its PDF, as `<pdf name>.md`, asking for the PDF's folder the
-   * first time; call from a click. Says why when nothing was moved: the user cancelled, or picked a
+   * Moves the notebook next to its PDF, as `<pdf name>.md`, asking for the PDF's folder the first
+   * time; call from a click. Says why when nothing was moved: the user cancelled, or picked a
    * folder that does not hold the PDF.
    */
   async moveBesidePdf(pdf: FileSystemFileHandle, pdfName: string): Promise<'moved' | 'cancelled' | 'elsewhere'> {
     const at = await vaults.grantFolderOf(pdf);
     if (at === null || at === 'elsewhere') return at ?? 'cancelled';
-    await this.#moveInto(at.vault, joinPath(parentOf(at.path), `${stemOf(pdfName)}.md`), pdfName);
+    await this.#moveTo(at.vault, joinPath(parentOf(at.path), `${stemOf(pdfName)}.md`), pdfName);
     return 'moved';
   }
 
   /**
-   * Writes a database notebook to `planned` in `vault`, or a free name beside it, with its
-   * frontmatter, its page links naming the PDF for Obsidian and its images written to
-   * `attachments/` beside it, and keeps editing it there. The database copy is left as it was, and
-   * a failure on the way removes the files written so far, so the notebook stays where it was.
+   * Writes the notebook to `planned` in `vault`, or a free name beside it, and keeps editing it
+   * there: its frontmatter (Estudio's keys and the user's), its page links naming the PDF for
+   * Obsidian, and its images copied to `attachments/` beside it with the references rewritten.
+   * Only once all of that is written is the old file deleted, with the images beside it that no
+   * other note there mentions. A failure on the way removes what was written, and the notebook
+   * stays where it was. A notebook kept in the database keeps its database copy. A pop-out window
+   * holds its edits while the notebook moves, then follows it. Returns a warning when the old file
+   * could not be deleted.
    */
-  async #moveInto(vault: VaultId, planned: VaultPath, pdfName: string): Promise<void> {
+  async #moveTo(vault: VaultId, planned: VaultPath, pdfName: string): Promise<string | undefined> {
     const root = notebookIndex.root(vault);
     if (!root) throw new Error('Estudio cannot open that folder.');
-    await this.notebook.flush();
-    const home: VaultHome = { kind: 'vault', docId: this.docId, vault, pdfName, path: await freePath(root, planned) };
-    const store = storeFor(home)!;
-    const moved = new Map<string, string>();
-    const written: VaultPath[] = [];
-    let text: string;
+    const from = this.location();
+    const fromRoot = from ? notebookIndex.root(from.vault) : undefined;
+    if (from && !fromRoot) throw new Error('Estudio cannot open the vault that holds this notebook.');
+    if (from && from.vault === vault && parentOf(from.path) === parentOf(planned)) throw new Error('The notebook is already in that folder.');
+    let moved: VaultHome | null = null;
+    await this.#holdPopout();
     try {
-      for (const r of imageRefs(this.notebook.markdown)) {
-        const id = attachmentId(r.src);
-        const att = id && !moved.has(id) ? await getAttachment(id) : undefined;
-        if (!att) continue;
-        const path = await writeAttachment(root, home.path, att.blob, att.name);
-        written.push(path);
-        moved.set(att.id, refFrom(home.path, path));
+      await this.notebook.flush();
+      const body = this.notebook.markdown;
+      const old = from && fromRoot ? await fileOrNull(fromRoot, from.path) : null;
+      const source = from && fromRoot && old ? { root: fromRoot, path: from.path, shallow: notebookIndex.isShallow(from.vault) } : null;
+      const front = old ? splitFrontmatter(await (await old.getFile()).text()).front : null;
+      const dir = parentOf(planned);
+      const taken = new Set([...(await filesIn(root, dir)), ...(await filesIn(root, joinPath(dir, ATTACHMENTS_DIR)))].map((f) => f.path));
+      const plan = planMove({ body, pdfName, planned, origins: await imageOrigins(body, source), taken: (p) => taken.has(p) });
+      const written: VaultPath[] = [];
+      try {
+        for (const c of plan.copies) {
+          const blob = c.origin.kind === 'db' ? (await getAttachment(c.origin.id))?.blob : await (await fileAt(source!.root, c.origin.path)).getFile();
+          if (!blob) throw new Error(`An image of the notebook could not be read (${c.to}).`);
+          if (await fileOrNull(root, c.to)) throw new Error(`"${c.to}" already exists.`);
+          written.push(c.to);
+          await writeFile(await fileAt(root, c.to, true), blob);
+        }
+        if (await fileOrNull(root, plan.notePath)) throw new Error(`"${plan.notePath}" already exists.`);
+        written.push(plan.notePath);
+        await writeFile(await fileAt(root, plan.notePath, true), notebookFrontmatter(front, this.docId, pdfName) + plan.body);
+      } catch (e) {
+        await Promise.all(written.map((p) => removeEntry(root, p).catch(() => undefined)));
+        throw e;
       }
-      text = rewriteAttachmentRefs(namePageLinks(this.notebook.markdown, pdfName), (id) => moved.get(id));
-      written.push(home.path);
-      await store.save(text, true);
-    } catch (e) {
-      await Promise.all(written.map((p) => removeEntry(root, p).catch(() => undefined)));
-      throw e;
+      const home: VaultHome = { kind: 'vault', docId: this.docId, vault, pdfName, path: plan.notePath };
+      notebookIndex.saved(this.docId, { vault, path: plan.notePath });
+      this.notebook.rehome(storeFor(home)!, filesFor(home), pdfName);
+      this.home = home;
+      moved = home;
+      this.notebook.edit(plan.body);
+      const warning = source ? await removeOld(source, plan.copies) : undefined;
+      vaults.changed([vault, ...(from ? [from.vault] : [])]);
+      return warning;
+    } finally {
+      this.notebook.channel.post({ t: 'moved', home: moved });
     }
-    this.notebook.rehome(store, filesFor(home), pdfName);
-    this.home = home;
-    this.notebook.edit(text);
+  }
+
+  /** Asks an open pop-out to save its edits and hold new ones until the notebook has moved. */
+  async #holdPopout(): Promise<void> {
+    if (!this.poppedOut) return;
+    const { channel } = this.notebook;
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        off();
+        clearTimeout(timer);
+        resolve();
+      };
+      const off = channel.on((m) => {
+        if (m.t === 'held') done();
+      });
+      const timer = setTimeout(done, 3000);
+      channel.post({ t: 'moving' });
+    });
   }
 
   dueHere = $derived.by(() => {

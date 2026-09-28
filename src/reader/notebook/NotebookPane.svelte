@@ -39,7 +39,9 @@
     <div class="row">
       <button class="btn" onclick={() => popOutNotebook(reader)}>Show window</button>
       <button class="btn" onclick={() => study.bringBack()} data-testid="bring-back">Bring back</button>
+      <button class="btn" aria-expanded={study.placeOpen} onclick={() => (study.placeOpen = !study.placeOpen)} data-testid="notebook-more">Location…</button>
     </div>
+    <div class="anchor">{#if study.placeOpen}<NotebookPlace {reader} {offer} onclose={() => (study.placeOpen = false)} />{/if}</div>
   </div>
 {:else}
   <Notebook doc={study.notebook} host={reader.notebookHost} autoLinks={app.settings.autoPageLinks} onAutoLinks={setAutoLinks} editorMode={app.settings.editorMode} onEditorMode={setEditorMode}>
@@ -82,6 +84,7 @@
   .act { flex: none; padding: 3px 5px; display: inline-flex; color: var(--muted); }
   .act :global(svg) { flex: none; }
   .more { display: inline-flex; }
+  .anchor { position: relative; justify-self: stretch; text-align: left; color: var(--text); }
   .inside { font-size: 11.5px; padding: 3px 6px; color: var(--muted); }
   .inside span { color: var(--accent); }
   .inside:hover span { text-decoration: underline; }

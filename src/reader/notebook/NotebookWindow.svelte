@@ -4,7 +4,7 @@
   import { windows } from '../../lib/windows';
   import { askPermission } from '../../lib/fsaccess';
   import { linkedPdfName, resolveHome, type NotebookHome, type Resolved } from '../../lib/notebookstore';
-  import type { NotebookContext } from '../../lib/notebooksync';
+  import { popoutHash, type NotebookContext } from '../../lib/notebooksync';
   import type { EditorMode } from '../../lib/types';
   import { NotebookChannel, NotebookDoc } from './doc.svelte';
   import type { NotebookHost } from './host.svelte';
@@ -12,6 +12,7 @@
 
   let { home }: { home: NotebookHome } = $props();
   const { docId } = untrack(() => home);
+  let current = $state.raw(untrack(() => home));
 
   const channel = new NotebookChannel(docId);
   let doc = $state.raw<NotebookDoc | null>(null);
@@ -43,12 +44,12 @@
 
   /** Opens the notebook where the reader keeps it, as its route names it. */
   async function attach() {
-    const r = await resolveHome(home);
+    const r = await resolveHome(current);
     if (r.kind !== 'ready') {
       blocked = r;
       return;
     }
-    const d = new NotebookDoc(docId, channel, r.store, r.files, linkedPdfName(home));
+    const d = new NotebookDoc(docId, channel, r.store, r.files, linkedPdfName(current));
     await d.load();
     blocked = null;
     doc = d;
@@ -57,6 +58,22 @@
 
   async function grant(vault: Extract<Resolved, { kind: 'locked' }>['vault']) {
     if (await askPermission(vault.handle, 'readwrite')) await attach();
+  }
+
+  /** The reader moved the notebook: keep editing it in its new place, and reopen there after a reload. */
+  async function follow(to: NotebookHome | null) {
+    if (!to) {
+      doc?.resume();
+      return;
+    }
+    current = to;
+    history.replaceState(null, '', `${location.pathname}${location.search}${popoutHash(to)}`);
+    const r = await resolveHome(to);
+    if (r.kind === 'ready' && doc) doc.resume({ store: r.store, files: r.files, pdfName: linkedPdfName(to) });
+    else if (r.kind !== 'ready') {
+      blocked = r;
+      doc = null;
+    }
   }
 
   function leave() {
@@ -70,6 +87,8 @@
         context = m.ctx;
         connected = true;
       } else if (m.t === 'ping') channel.post({ t: 'open' });
+      else if (m.t === 'moving') void (doc?.hold() ?? Promise.resolve()).then(() => channel.post({ t: 'held' }));
+      else if (m.t === 'moved') void follow(m.home);
       else if (m.t === 'close') window.close();
     });
     void (async () => {

@@ -64,6 +64,15 @@ export async function markdownHeads(root: Dir, prefix: VaultPath = '', deep = tr
   return out;
 }
 
+/** The files directly in `dir`; none when the folder does not exist. */
+export async function filesIn(root: Dir, dir: VaultPath): Promise<{ path: VaultPath; handle: FileSystemFileHandle }[]> {
+  const d = await dirAt(root, dir).catch(() => null);
+  const out: { path: VaultPath; handle: FileSystemFileHandle }[] = [];
+  if (!d) return out;
+  for await (const [name, h] of (d as Iterable).entries()) if (h.kind === 'file') out.push({ path: joinPath(dir, name), handle: h as FileSystemFileHandle });
+  return out;
+}
+
 export async function writeFile(file: FileSystemFileHandle, data: Blob | BufferSource | string): Promise<void> {
   const w = await file.createWritable();
   await w.write(data);

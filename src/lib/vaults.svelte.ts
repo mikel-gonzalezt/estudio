@@ -76,6 +76,12 @@ class Vaults {
     else if (cur && (changed === cur.id || !this.tree.size)) await this.refresh();
   }
 
+  /** Files in these vaults changed outside the Files tree: redraws the tree and tells the other windows. */
+  changed(ids: readonly VaultId[]) {
+    if (this.current && ids.includes(this.current.id)) void this.refresh();
+    for (const id of new Set(ids)) this.#announce(id);
+  }
+
   #announce(vault?: VaultId) {
     windows.post({ t: 'vaults', ...(vault ? { vault } : {}) });
   }

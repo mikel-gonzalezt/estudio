@@ -47,6 +47,7 @@ export class NotebookDoc {
   readonly #self = crypto.randomUUID();
   #rev: Rev = NO_REV;
   #dirty = false;
+  #held = false;
   #timer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(docId: DocId, channel: NotebookChannel, store: NotebookStore, files: NoteFiles, pdfName?: string) {
@@ -79,6 +80,23 @@ export class NotebookDoc {
     this.pdfName = pdfName;
   }
 
+  /** Saves this window's unsaved edit, then keeps new edits unsaved until `resume`, as while the reader moves the notebook. */
+  async hold() {
+    await this.flush();
+    this.#held = true;
+  }
+
+  /** Saves again, into `to` when the notebook moved meanwhile, starting with any edit made while held. */
+  resume(to?: { store: NotebookStore; files: NoteFiles; pdfName: string | undefined }) {
+    if (to) {
+      this.#store = to.store;
+      this.files = to.files;
+      this.pdfName = to.pdfName;
+    }
+    this.#held = false;
+    if (this.#dirty) void this.flush();
+  }
+
   /** A change made in this window. */
   edit(markdown: string) {
     if (markdown === this.markdown) return;
@@ -97,7 +115,7 @@ export class NotebookDoc {
   /** Writes this window's own unsaved edit; text adopted from another window is that window's to save. */
   async flush() {
     clearTimeout(this.#timer);
-    if (!this.#dirty) return;
+    if (!this.#dirty || this.#held) return;
     this.#dirty = false;
     await this.#store.save(this.markdown);
   }

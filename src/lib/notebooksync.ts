@@ -42,7 +42,12 @@ export type NotebookMsg =
   | { t: 'close' }
   | { t: 'context'; ctx: NotebookContext }
   | { t: 'follow'; target: LinkTarget }
-  | { t: 'autoLinks'; on: boolean };
+  | { t: 'autoLinks'; on: boolean }
+  /** Reader is about to move the notebook: the pop-out saves its edits, holds new ones, and replies `held`. */
+  | { t: 'moving' }
+  | { t: 'held' }
+  /** The move is over: the notebook now lives at `home`, or stayed where it was when `home` is null. */
+  | { t: 'moved'; home: NotebookHome | null };
 
 export const channelName = (docId: string) => `estudio-notebook:${docId}`;
 

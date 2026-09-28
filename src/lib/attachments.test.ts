@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   candidatePaths, encodeRef, figureMarkdown, imageRefs, imageSource, loadRemote, mayFetch, normalisePath, pastedImageName, refFrom,
-  remoteImageLabel, rewriteAttachmentRefs,
+  remoteImageLabel,
 } from './attachments';
 
 describe('names and references', () => {
@@ -30,20 +30,6 @@ describe('imageRefs', () => {
   });
   it('ignores page links and plain links', () => {
     expect(imageRefs('[[p3]] [x](y.png) [[paper.pdf#page=2]]')).toEqual([]);
-  });
-});
-
-describe('rewriteAttachmentRefs', () => {
-  it('rewrites only the attachments it is given', () => {
-    const md = '![](estudio-attachment:a) and ![Figure](estudio-attachment:b "t") [[p2]] and ![](estudio-attachment:c)';
-    const map: Record<string, string> = { a: 'attachments/A.png', b: 'attachments/B%201.png' };
-    expect(rewriteAttachmentRefs(md, (id) => map[id])).toBe(
-      '![](attachments/A.png) and ![Figure](attachments/B%201.png "t") [[p2]] and ![](estudio-attachment:c)',
-    );
-  });
-  it('leaves text without attachments unchanged', () => {
-    const md = '# T\n\n![](attachments/x.png)\n';
-    expect(rewriteAttachmentRefs(md, () => 'z')).toBe(md);
   });
 });
 

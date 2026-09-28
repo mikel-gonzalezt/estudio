@@ -44,21 +44,6 @@ export function imageRefs(markdown: string): ImageRef[] {
   });
 }
 
-/** Replaces `estudio-attachment:<id>` sources for which `to(id)` gives a new source; nothing else changes. */
-export function rewriteAttachmentRefs(markdown: string, to: (id: string) => string | undefined): string {
-  let out = '';
-  let at = 0;
-  for (const r of imageRefs(markdown)) {
-    const id = attachmentId(r.src);
-    const next = id === null ? undefined : to(id);
-    if (next === undefined) continue;
-    const s = markdown.indexOf(r.src, r.from);
-    out += markdown.slice(at, s) + next;
-    at = s + r.src.length;
-  }
-  return out + markdown.slice(at);
-}
-
 /** Resolves `.` and `..` segments; null when the path climbs above the vault root. */
 export function normalisePath(p: string): VaultPath | null {
   const out: string[] = [];
@@ -190,6 +175,17 @@ async function fileBlob(root: Dir, path: VaultPath): Promise<Blob | null> {
   return h ? h.getFile() : null;
 }
 
+/**
+ * The vault file a note at `notePath` means by the local image `src`: relative to the note's
+ * folder, then to the vault root, then any file in the vault with that name, unless `shallow`.
+ */
+export async function findImage(root: Dir, notePath: VaultPath, src: string, shallow = false): Promise<VaultPath | null> {
+  for (const p of candidatePaths(src, parentOf(notePath))) if (await fileOrNull(root, p)) return p;
+  if (shallow) return null;
+  const name = nameOf(decode(src));
+  return (await walk(root)).find((e) => e.kind === 'file' && nameOf(e.path) === name)?.path ?? null;
+}
+
 /** Writes `blob` into the `attachments` folder beside `notePath` under a free name; returns its vault path. */
 export async function writeAttachment(root: Dir, notePath: VaultPath, blob: Blob, name: string): Promise<VaultPath> {
   const dir = joinPath(parentOf(notePath), ATTACHMENTS_DIR);
@@ -224,14 +220,8 @@ export function vaultFiles(where: () => { root: Dir; notePath: VaultPath; shallo
       const w = where();
       if (!w) return null;
       if (attachmentId(src)) return dbFiles().blob(src);
-      for (const p of candidatePaths(src, parentOf(w.notePath))) {
-        const b = await fileBlob(w.root, p);
-        if (b) return b;
-      }
-      if (w.shallow) return null;
-      const name = nameOf(decode(src));
-      const hit = (await walk(w.root)).find((e) => e.kind === 'file' && nameOf(e.path) === name);
-      return hit ? fileBlob(w.root, hit.path) : null;
+      const path = await findImage(w.root, w.notePath, src, w.shallow);
+      return path ? fileBlob(w.root, path) : null;
     },
   );
 }
