@@ -44,6 +44,13 @@ Estudio is a study-focused PDF reader that runs as an installed Edge app (PWA) o
 
 Read this file first. Suggested order: a small settings screen; then whatever real use shows is missing; then OCR, if scanned material becomes common.
 
+## 2026-10-05, session 12
+
+- **Translation prompt.** Edge offered to translate the app, because the UI is English while the browser is Spanish. `index.html` now has `translate="no"` and `<meta name="google" content="notranslate">`.
+- **Sidebar default.** The left sidebar opens on **Files** when a vault is open, and on **Outline** otherwise, since the Files tab only exists with a vault.
+- **Recent documents.** There was no limit. Records are never deleted automatically, because each one holds that PDF's progress, cards and, outside vaults, its notes. Instead the library shows the 12 most recent, with "Show all N", and a search box once there are more than 12.
+- **Checked** in headless Edge: both translation markers are present, 15 seeded documents show 12 then 15 and the filter finds 6, and the sidebar opens on Files with a vault. No console errors.
+
 ## 2026-09-28, session 11
 
 Three bugs the user hit in the installed app, each reproduced in headless Edge on the current build before it was fixed.

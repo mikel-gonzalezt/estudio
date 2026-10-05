@@ -15,6 +15,16 @@
   let restoreInput: HTMLInputElement;
   let notice = $state('');
 
+  // Every document keeps its record (progress, cards, notes), so the list is shortened on screen only.
+  const RECENT_SHOWN = 12;
+  let showAll = $state(false);
+  let filter = $state('');
+  const matching = $derived.by(() => {
+    const q = filter.trim().toLowerCase();
+    return q ? app.docs.filter((d) => `${d.title} ${d.fileName}`.toLowerCase().includes(q)) : app.docs;
+  });
+  const shown = $derived(showAll || filter.trim() ? matching : matching.slice(0, RECENT_SHOWN));
+
   async function onRestore() {
     const f = restoreInput.files?.[0];
     restoreInput.value = '';
@@ -140,9 +150,14 @@
       </div>
     </section>
   {:else}
-    <h2 class="section">Recent</h2>
+    <div class="recent-head">
+      <h2 class="section">Recent</h2>
+      {#if app.docs.length > RECENT_SHOWN}
+        <input class="filter" type="search" placeholder="Search {app.docs.length} documents" bind:value={filter} aria-label="Search documents" />
+      {/if}
+    </div>
     <ul class="grid">
-      {#each app.docs as doc (doc.id)}
+      {#each shown as doc (doc.id)}
         <li class="doc">
           <button class="open" title="Ctrl+click opens it in a new window"
             onclick={(e) => (newWindowClick(e) ? app.openDocInNewWindow(doc) : openDoc(doc))}
@@ -163,6 +178,11 @@
         </li>
       {/each}
     </ul>
+    {#if !filter.trim() && matching.length > RECENT_SHOWN}
+      <button class="btn more" onclick={() => (showAll = !showAll)} data-testid="recent-more">
+        {showAll ? 'Show fewer' : `Show all ${matching.length}`}
+      </button>
+    {/if}
   {/if}
   </div>
   </div>
@@ -179,6 +199,9 @@
   h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
   .actions { display: flex; gap: 8px; }
   .row { display: inline-flex; align-items: center; gap: 6px; }
+  .recent-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .filter { font-size: 13px; padding: 4px 8px; width: min(240px, 50%); }
+  .more { margin-top: 12px; }
   .section { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px; }
   .error { color: var(--danger); }
   .hint { background: var(--accent-soft); padding: 8px 12px; border-radius: var(--radius); }

@@ -8,6 +8,7 @@ import { displayToPage, normalisePoint, pageToDisplay, rectPageToDisplay } from 
 import { centredScrollLeft, fitTextScale, textBounds } from '../lib/textfit';
 import type { PointerCtx } from './tools';
 import { putDoc } from '../lib/db';
+import { vaults } from '../lib/vaults.svelte';
 import type { TextRun } from '../lib/citation';
 import type { PdfRequest } from '../lib/app.svelte';
 import type { FileSync } from './filesync.svelte';
@@ -46,7 +47,7 @@ export class Reader {
   scale = $state(1);
   currentPage = $state(1);
   leftOpen = $state(false);
-  leftTab = $state<LeftTab>('outline');
+  leftTab = $state<LeftTab>(vaults.current ? 'files' : 'outline');
   scroller: HTMLElement | undefined = $state();
   back: Target[] = $state([]);
   forward: Target[] = $state([]);
